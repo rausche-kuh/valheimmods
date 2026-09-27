@@ -22,6 +22,28 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   buildings beside it, all as JSON blueprints made in game with `docks ... edit` / `docks capture`
   (reworked 2026-09-26, not run in game yet): check them, then rebuild the shipped blueprints in
   game (pitched roofs, doors, a Mistlands building). What to check in `docs/docks.md`.
+  The blueprints themselves: the user makes their own with PlanBuild.
+- **The game's harbours first, the mod's docks as the fallback.** `Mistlands_Harbour1` (dvergr
+  pier, crane, guardstone, a walled hut with dvergr spawners) stands on the Mistlands' edge,
+  snapped to the water: the game's only harbour location, and a natural way into the Mistlands.
+  A crossing landing there (or boarding) uses its pier instead of a dock of the mod's: the search
+  prefers its shore (an entry in `Entries`, or a cheaper landing near it), the stone goes where
+  the pier meets the land, and buildings grow beside the road. The server knows every harbour
+  from `ZoneSystem.m_locationInstances` before its zone is generated, but its objects spawn only
+  then: build nothing in its footprint until they have, and measure that footprint
+  (`Footprints`) - its pieces reach past its exterior radius. **Find** the swamp location that
+  looks like a dock (not named like one; the `SwampHut*` stand on log piles) and whether it can
+  serve the same way.
+- **A busy harbour.** Make a harbour look used, not abandoned: buildings are the first step,
+  then better condition than a ruin's, lit lamps, crates and barrels.
+- **Wrecks at the harbours.** A `wreck` blueprint kind from the game's wreck parts
+  (`shipwreck_karve_*`, `shipwreck_vikingship_*`; **verify** they spawn by name through
+  `ZNetScene`), laid in the shallows beside a harbour so it feels alive.
+- **Spurs to the game's wrecks**, only if they cost little search time. The locations:
+  `ShipWreck01`-`04` (shores of the Swamp, Black Forest, Plains and Ocean), `ShipWreck01_DN` /
+  `02_DN` (Deep North shore), `FrozenShip01`-`03` (Deep North, in the ice; told apart by name).
+  Most lie in water or ice, so a spur ends at the nearest shore, not at the wreck, and wrecks
+  close together (they form graveyards) share one spur to one shore point.
 - paths around bases / structures that the path did not target
 - always add mini paths to close by structures (houses)
 - spawn houses at road forks

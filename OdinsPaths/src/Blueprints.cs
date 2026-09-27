@@ -45,11 +45,15 @@ namespace OdinsPaths
     }
 
     /// <summary>
-    /// A dock or a building, as a JSON file in <c>harbours/</c> beside the DLL (shipped from the
+    /// A dock or a building, as two files in <c>harbours/</c> beside the DLL (shipped from the
     /// mod's <c>assets/harbours/</c>) or in <c>BepInEx/config/OdinsPaths/harbours/</c> (the
     /// player's own, and what <c>docks capture</c> writes; one of the same name replaces the
-    /// shipped one). Plain JSON, read by <see cref="Json"/> (Unity's <c>JsonUtility</c> left the
-    /// piece lists empty in game); a field left out is 0, false or empty. The format is in <c>docs/docks.md</c>.
+    /// shipped one): <c>&lt;name&gt;.json</c>, the settings, plain JSON read by <see cref="Json"/>
+    /// (Unity's <c>JsonUtility</c> left lists empty in game), a field left out 0, false or empty;
+    /// and <c>&lt;name&gt;.blueprint</c>, the pieces in PlanBuild's format, so PlanBuild can place
+    /// and capture them (<see cref="Blueprints.ReadPlan"/>). A JSON file without a .blueprint
+    /// beside it holds its pieces itself, the old format, until <c>docks export</c> converts it.
+    /// The format is in <c>docs/docks.md</c>.
     /// </summary>
     [Serializable]
     public sealed class Blueprint
@@ -74,6 +78,8 @@ namespace OdinsPaths
         public List<BlueprintSpot> spots = new List<BlueprintSpot>();
 
         [NonSerialized] internal string File;
+        /// <summary>Its pieces are in the JSON file itself, the format before .blueprint files.</summary>
+        [NonSerialized] internal bool Legacy;
         [NonSerialized] internal bool IsDock;
         [NonSerialized] internal Heightmap.Biome Biomes;
 
@@ -107,7 +113,10 @@ namespace OdinsPaths
         [NonSerialized] internal Anchor Anchor;
     }
 
-    /// <summary>A place something may go: "chest", "enemy", "deco" (furniture from the deco list), or "stone" (a dock's harbour stone).</summary>
+    /// <summary>
+    /// A place something may go: "chest", "enemy", "deco" (furniture from the deco list), or
+    /// "stone" (a dock's harbour stone). In a .blueprint a sign reading its kind, pos its foot.
+    /// </summary>
     [Serializable]
     public sealed class BlueprintSpot
     {
@@ -152,6 +161,7 @@ namespace OdinsPaths
                 {
                     continue;
                 }
+                // The settings name a blueprint; a .blueprint without them is PlanBuild's alone.
                 string[] files = Directory.GetFiles(folder, "*.json");
                 Array.Sort(files, StringComparer.OrdinalIgnoreCase);
                 foreach (string file in files)
@@ -184,6 +194,20 @@ namespace OdinsPaths
             if (blueprint == null)
             {
                 return null;
+            }
+            string plan = Path.ChangeExtension(file, ".blueprint");
+            blueprint.Legacy = !File.Exists(plan);
+            if (!blueprint.Legacy)
+            {
+                try
+                {
+                    FromPlan(ReadPlan(plan, out string _), blueprint);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[OdinsPaths] Harbour blueprint " + plan + " could not be read - left out: " + e.Message);
+                    return null;
+                }
             }
             blueprint.File = file;
             if (string.IsNullOrEmpty(blueprint.name))
@@ -358,7 +382,11 @@ namespace OdinsPaths
             return order;
         }
 
-        /// <summary>Writes a blueprint as JSON, one piece a line, and returns the path.</summary>
+        /// <summary>
+        /// Writes a blueprint as its two files in the player's folder - the settings as JSON, the
+        /// pieces as a PlanBuild .blueprint - and returns the .blueprint's path. Pieces of the old
+        /// format anchored at their top or bottom are written by their pivots, so it needs the game's prefabs.
+        /// </summary>
         public static string Save(Blueprint blueprint)
         {
             Directory.CreateDirectory(UserFolder);
@@ -373,34 +401,246 @@ namespace OdinsPaths
             s.Append("  \"roofReach\": ").Append(F(blueprint.RoofReach)).Append(",\n");
             s.Append("  \"deco\": ").Append(Strings(blueprint.deco)).Append(",\n");
             s.Append("  \"clutter\": ").Append(Strings(blueprint.clutter)).Append(",\n");
-            s.Append("  \"clutterChance\": ").Append(F(blueprint.clutterChance)).Append(",\n");
-            s.Append("  \"pieces\": [\n");
-            for (int i = 0; i < blueprint.pieces.Count; i++)
-            {
-                BlueprintPiece p = blueprint.pieces[i];
-                s.Append("    {\"prefab\": ").Append(Quote(p.prefab)).Append(", \"pos\": ").Append(Floats(p.pos));
-                if (p.rot != null && p.rot.Length > 0)
-                {
-                    s.Append(", \"rot\": ").Append(Floats(p.rot));
-                }
-                s.Append(", \"role\": ").Append(Quote(p.role ?? "keep"));
-                if (!string.IsNullOrEmpty(p.anchor) && !p.anchor.Equals("pivot", StringComparison.OrdinalIgnoreCase))
-                {
-                    s.Append(", \"anchor\": ").Append(Quote(p.anchor));
-                }
-                s.Append(i + 1 < blueprint.pieces.Count ? "},\n" : "}\n");
-            }
-            s.Append("  ],\n");
-            s.Append("  \"spots\": [\n");
-            for (int i = 0; i < blueprint.spots.Count; i++)
-            {
-                BlueprintSpot spot = blueprint.spots[i];
-                s.Append("    {\"kind\": ").Append(Quote(spot.kind)).Append(", \"pos\": ").Append(Floats(spot.pos))
-                    .Append(", \"yaw\": ").Append(F(spot.yaw)).Append(i + 1 < blueprint.spots.Count ? "},\n" : "}\n");
-            }
-            s.Append("  ]\n}\n");
+            s.Append("  \"clutterChance\": ").Append(F(blueprint.clutterChance)).Append("\n");
+            s.Append("}\n");
+            string plan = Path.ChangeExtension(path, ".blueprint");
+            File.WriteAllLines(plan, WritePlan(blueprint).ToArray());
             File.WriteAllText(path, s.ToString());
-            return path;
+            return plan;
+        }
+
+        // ---- PlanBuild's .blueprint format ----
+        //
+        // Text, a header line each (#Name:, #Creator:, #Description: a JSON string, #Category:),
+        // then #Pieces and a line per piece: prefab;category;x;y;z;qx;qy;qz;qw;info;sx;sy;sz, the
+        // info a JSON string (a sign's text). PlanBuild never reads the category back, so it
+        // carries the role; a PlanBuild capture writes the hammer's tab there instead, and the
+        // role is guessed. #SnapPoints, #Terrain and anything else it knows or not are skipped.
+
+        /// <summary>One line of a .blueprint's #Pieces.</summary>
+        internal struct PlanPiece
+        {
+            public string Prefab;
+            public string Category;
+            public Vector3 Position;
+            public Quaternion Rotation;
+            /// <summary>The piece's extra data: a sign's text, a door's state...; "" for none.</summary>
+            public string Info;
+        }
+
+        /// <summary>The pieces of a .blueprint file and its #Name (else the file's). Throws FormatException on a bad piece line.</summary>
+        public static List<PlanPiece> ReadPlan(string path, out string name)
+        {
+            name = Path.GetFileNameWithoutExtension(path);
+            List<PlanPiece> pieces = new List<PlanPiece>();
+            // As PlanBuild reads it: lines before any section are pieces; the four headers keep the section.
+            bool inPieces = true;
+            string[] lines = File.ReadAllLines(path);
+            for (int n = 0; n < lines.Length; n++)
+            {
+                string line = lines[n].Trim();
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+                if (line.StartsWith("#"))
+                {
+                    if (line.StartsWith("#Name:"))
+                    {
+                        string named = line.Substring("#Name:".Length).Trim();
+                        name = named.Length > 0 ? named : name;
+                    }
+                    else if (!line.StartsWith("#Creator:") && !line.StartsWith("#Description:") && !line.StartsWith("#Category:"))
+                    {
+                        inPieces = line == "#Pieces";
+                    }
+                    continue;
+                }
+                if (!inPieces)
+                {
+                    continue;
+                }
+                string[] parts = line.Split(';');
+                if (parts.Length < 9)
+                {
+                    throw new FormatException("line " + (n + 1) + " is no piece: " + line);
+                }
+                string info = parts.Length > 9 ? parts[9].Trim() : "";
+                if (info.StartsWith("\""))
+                {
+                    info = Json.Parse(info) as string ?? "";
+                }
+                pieces.Add(new PlanPiece
+                {
+                    Prefab = parts[0].Trim(),
+                    Category = parts[1].Trim(),
+                    Position = new Vector3(Number(parts[2]), Number(parts[3]), Number(parts[4])),
+                    Rotation = new Quaternion(Number(parts[5]), Number(parts[6]), Number(parts[7]), Number(parts[8])).normalized,
+                    Info = info,
+                });
+            }
+            return pieces;
+        }
+
+        /// <summary>Old PlanBuild files wrote decimal commas.</summary>
+        private static float Number(string text) => string.IsNullOrEmpty(text) ? 0f
+            : float.Parse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
+
+        /// <summary>A blueprint's pieces and spots from PlanBuild lines in its frame: a sign reading a spot's kind is that spot.</summary>
+        internal static void FromPlan(List<PlanPiece> plan, Blueprint blueprint)
+        {
+            bool dock = string.Equals((blueprint.kind ?? "").Trim(), "dock", StringComparison.OrdinalIgnoreCase);
+            blueprint.pieces = new List<BlueprintPiece>();
+            blueprint.spots = new List<BlueprintSpot>();
+            foreach (PlanPiece p in plan)
+            {
+                string text = p.Info.Trim().ToLowerInvariant();
+                if (p.Prefab == Builder.SignPrefab && IsSpot(text))
+                {
+                    float yaw = Mathf.Round(p.Rotation.eulerAngles.y * 10f) / 10f % 360f;
+                    Vector3 foot = p.Position + Quaternion.Euler(0f, yaw, 0f) * SignBase();
+                    blueprint.spots.Add(new BlueprintSpot { kind = text, pos = Rounded(foot), yaw = yaw });
+                    continue;
+                }
+                string prefab = p.Prefab.StartsWith(Relics.Prefix) ? p.Prefab.Substring(Relics.Prefix.Length) : p.Prefab;
+                string category = p.Category.ToLowerInvariant();
+                blueprint.pieces.Add(new BlueprintPiece
+                {
+                    prefab = prefab,
+                    pos = Rounded(p.Position),
+                    rot = new[] { p.Rotation.x, p.Rotation.y, p.Rotation.z, p.Rotation.w },
+                    role = IsRole(category) ? category : Guess(prefab, p.Position.y, dock),
+                });
+            }
+        }
+
+        /// <summary>A blueprint as .blueprint lines: every piece by its pivot, its role as its category, a sign for each spot.</summary>
+        public static List<string> WritePlan(Blueprint blueprint)
+        {
+            List<string> lines = new List<string>
+            {
+                "#Name:" + blueprint.name,
+                "#Creator:OdinsPaths",
+                "#Description:" + Quote("OdinsPaths harbour " + (blueprint.IsDock ? "dock" : "building") + ": each piece's category is its role, "
+                    + "a sign reading chest, enemy, deco or stone is a spot. The settings are in " + blueprint.name + ".json."),
+                "#Category:OdinsPaths",
+                "#Pieces",
+            };
+            foreach (PlanPiece p in ToPlan(blueprint))
+            {
+                lines.Add(PlanLine(p.Prefab, p.Category, p.Position, p.Rotation, p.Info));
+            }
+            return lines;
+        }
+
+        /// <summary>
+        /// A blueprint's pieces as PlanBuild has them: by their pivots (the old format's top and
+        /// bottom anchors resolved, which needs the game's prefabs), the role as the category, and
+        /// a sign for each spot.
+        /// </summary>
+        internal static List<PlanPiece> ToPlan(Blueprint blueprint)
+        {
+            List<PlanPiece> plan = new List<PlanPiece>();
+            foreach (BlueprintPiece piece in blueprint.pieces)
+            {
+                Vector3 position = Vector(piece.pos);
+                Quaternion rotation = Rotation(piece.rot);
+                Anchor anchor = Parse(piece.anchor, Anchor.Pivot, blueprint.name);
+                if (anchor != Anchor.Pivot)
+                {
+                    GameObject prefab = ZNetScene.instance != null ? Builder.Prefab(piece.prefab) : null;
+                    if (prefab == null)
+                    {
+                        throw new InvalidOperationException("the pivot of " + piece.prefab + " needs its prefab in the game");
+                    }
+                    Bounds shape = Builder.Shape(prefab);
+                    position -= rotation * new Vector3(shape.center.x, anchor == Anchor.Top ? shape.max.y : shape.min.y, shape.center.z);
+                }
+                string role = Parse(piece.role, Role.Keep, blueprint.name).ToString().ToLowerInvariant();
+                plan.Add(new PlanPiece { Prefab = piece.prefab, Category = role, Position = position, Rotation = rotation, Info = "" });
+            }
+            foreach (BlueprintSpot spot in blueprint.spots)
+            {
+                Quaternion turn = Quaternion.Euler(0f, spot.yaw, 0f);
+                plan.Add(new PlanPiece { Prefab = Builder.SignPrefab, Category = "spot", Position = Vector(spot.pos) - turn * SignBase(), Rotation = turn, Info = spot.kind });
+            }
+            return plan;
+        }
+
+        internal static string PlanLine(string prefab, string category, Vector3 position, Quaternion rotation, string info)
+        {
+            return string.Join(";", new[]
+            {
+                prefab, category,
+                P(position.x), P(position.y), P(position.z),
+                P(rotation.x), P(rotation.y), P(rotation.z), P(rotation.w),
+                Quote((info ?? "").Replace(";", "")), "1", "1", "1",
+            });
+        }
+
+        private static string P(float value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+
+        internal static bool IsSpot(string text) => text == "chest" || text == "enemy" || text == "deco" || text == "stone";
+
+        private static bool IsRole(string text) => text.Length > 0 && !char.IsDigit(text[0]) && Enum.TryParse(text, true, out Role _);
+
+        private static bool signWarned;
+
+        /// <summary>From a sign's pivot to its foot, which is the spot: the bottom face's centre of its measured box.</summary>
+        private static Vector3 SignBase()
+        {
+            GameObject sign = ZNetScene.instance != null ? Builder.Prefab(Builder.SignPrefab) : null;
+            if (sign == null)
+            {
+                if (!signWarned)
+                {
+                    signWarned = true;
+                    Debug.LogWarning("[OdinsPaths] Harbour blueprints read before the game's prefabs: spots are at their signs' pivots.");
+                }
+                return Vector3.zero;
+            }
+            Bounds shape = Builder.Shape(sign);
+            return new Vector3(shape.center.x, shape.min.y, shape.center.z);
+        }
+
+        private static Vector3 Vector(float[] v) => v == null || v.Length < 3 ? Vector3.zero : new Vector3(v[0], v[1], v[2]);
+
+        private static float[] Rounded(Vector3 v)
+        {
+            return new[] { Mathf.Round(v.x * 1000f) / 1000f, Mathf.Round(v.y * 1000f) / 1000f, Mathf.Round(v.z * 1000f) / 1000f };
+        }
+
+        /// <summary>A role from a piece's name and height, for a piece nobody gave one: what stands below the deck or floor is a pile.</summary>
+        internal static string Guess(string name, float y, bool dock)
+        {
+            string lower = name.ToLowerInvariant();
+            bool upright = lower.Contains("pole") || lower.Contains("pillar") || lower.Contains("log") || lower.Contains("post")
+                || lower.Contains("beam") || lower.Contains("block");
+            if (upright && y < -0.2f)
+            {
+                return "pile";
+            }
+            if (lower.Contains("roof"))
+            {
+                return "roof";
+            }
+            if (lower.Contains("wall") || lower.Contains("window") || lower.Contains("door") || lower.Contains("gate"))
+            {
+                return "wall";
+            }
+            if (lower.Contains("lantern") || lower.Contains("demister") || lower.Contains("torch") || lower.Contains("lamp"))
+            {
+                return "lamp";
+            }
+            if (upright && !lower.Contains("beam"))
+            {
+                return "post";
+            }
+            if (lower.Contains("floor") || lower.Contains("beam") || lower.Contains("stair"))
+            {
+                return dock ? "deck" : "floor";
+            }
+            return "deco";
         }
 
         private static string Quote(string text) => "\"" + (text ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
@@ -415,16 +655,6 @@ namespace OdinsPaths
             for (int i = 0; i < items.Length; i++)
             {
                 s.Append(i > 0 ? ", " : "").Append(Quote(items[i]));
-            }
-            return s.Append(']').ToString();
-        }
-
-        private static string Floats(float[] values)
-        {
-            StringBuilder s = new StringBuilder("[");
-            for (int i = 0; i < values.Length; i++)
-            {
-                s.Append(i > 0 ? ", " : "").Append(F(values[i]));
             }
             return s.Append(']').ToString();
         }

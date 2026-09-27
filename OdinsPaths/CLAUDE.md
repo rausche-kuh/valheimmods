@@ -25,7 +25,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `docs/laying.md` | Paint, levelling, clearing, landings. |
 | `docs/network.md` | The two tiers, progression, traders, bases, storage. |
 | `docs/biomes.md` | What each biome asks of a road. |
-| `docs/docks.md` | Docks and harbour buildings: placement, the blueprint JSON format, making them in game. |
+| `docs/docks.md` | Docks and harbour buildings: placement, the blueprint format (PlanBuild's), making them in game or with PlanBuild. |
 | `docs/prior-art.md` | Procedural Roads and `PLAN.md` weighed, why no Jötunn. |
 
 ## Source map
@@ -49,7 +49,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `src/Footprints.cs` | How far a location's buildings reach, measured once, cached per game version. |
 | `src/Landings.cs` | Landings at sea crossings; `Spawn` marks what the mod places. |
 | `src/Harbours.cs` | Harbour stones: the mod's vegvisir prefab, linked across the sea. |
-| `src/Blueprints.cs` | Harbour blueprints: the JSON format, loading (`assets/harbours/`, config), saving. |
+| `src/Blueprints.cs` | Harbour blueprints: settings JSON + PlanBuild `.blueprint`, loading (`assets/harbours/`, config), saving. |
 | `src/Json.cs` | A small JSON reader for the blueprints (`JsonUtility` left their lists empty). |
 | `src/Builder.cs` | Raises a blueprint: weathering, piles to the ground, spots, chests, spawners. |
 | `src/Docks.cs` | A harbour's dock: flush with the road, fitted to the shore. |
@@ -59,7 +59,8 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `src/PathLayer.cs` | One road: search passes → trail → write → clear → landings; `LaySpurs`. |
 | `src/Dev/PathCommands.cs` | `paths` commands: facts, search, lay, grow, undo, reset… (Debug only). |
 | `src/Dev/PathPreview.cs` | `paths preview` / `show` / `auto`, the pins and their tooltips (Debug only). |
-| `src/Dev/DockCommands.cs` | `docks list` / `reload` / `build` / `house` / `undo` / `capture` (Debug only). |
+| `src/Dev/DockCommands.cs` | `docks list` / `reload` / `build` / `house` / `undo` / `capture` / `export` / `import` (Debug only). |
+| `src/Dev/PlanBuildFiles.cs` | `docks export` to PlanBuild's folder, `docks import` of its captures, fitted back (Debug only). |
 
 ## The rules that always apply
 

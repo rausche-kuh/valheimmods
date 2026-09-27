@@ -9,10 +9,13 @@ namespace OdinsPaths
     public partial class OdinsPathsPlugin
     {
         private const string DockUsage = "docks list | reload | build [blueprint] [condition 0-1] [chest] [enemies] [edit] | "
-            + "house [blueprint] [condition 0-1] [chest] [enemies] [edit] | undo | capture <name> [dock|building] [radius]   "
+            + "house [blueprint] [condition 0-1] [chest] [enemies] [edit] | undo | capture <name> [dock|building] [radius] | "
+            + "export [name] | import <PlanBuild file> [as <name>] [dock|building]   "
             + "(build: a dock from where you stand out along where you look, you standing where the road ends; house: a building "
             + "with its front where you stand, looking in; edit: as new, of pieces the hammer takes, signs at the spots; "
-            + "capture: what was built around you into BepInEx/config/OdinsPaths/harbours/<name>.json)";
+            + "capture: what was built around you into BepInEx/config/OdinsPaths/harbours/<name>.blueprint and .json; "
+            + "export: every blueprint, or one, rewritten there and copied to PlanBuild's folder; "
+            + "import: a PlanBuild capture of a placed blueprint, fitted back into its frame)";
 
         /// <summary>The objects of what "docks build" and "docks house" made, newest last, for "docks undo".</summary>
         private static readonly List<List<ZDOID>> builtDocks = new List<List<ZDOID>>();
@@ -53,6 +56,8 @@ namespace OdinsPaths
                         case "house": Say(args.Context, BuildDock(args, house: true)); break;
                         case "undo": Say(args.Context, UndoDock()); break;
                         case "capture": Say(args.Context, Capture(args)); break;
+                        case "export": Say(args.Context, PlanBuildFiles.Export(args)); break;
+                        case "import": Say(args.Context, PlanBuildFiles.Import(args)); break;
                         default: Say(args.Context, DockUsage); break;
                     }
                 }, isCheat: true);
@@ -256,7 +261,7 @@ namespace OdinsPaths
                 if (prefab.GetComponent<Sign>() != null)
                 {
                     string text = zdo.GetString(ZDOVars.s_text, "").Trim().ToLowerInvariant();
-                    if (text == "chest" || text == "enemy" || text == "deco" || text == "stone")
+                    if (Blueprints.IsSpot(text))
                     {
                         // A spot stands on the deck: the sign's foot.
                         Bounds shape = Builder.Shape(prefab);
@@ -271,7 +276,7 @@ namespace OdinsPaths
                     prefab = prefabName,
                     pos = Round(local),
                     rot = Angles(rotation),
-                    role = role != "" ? role : Guess(prefabName, local.y, blueprint.IsDock),
+                    role = role != "" ? role : Blueprints.Guess(prefabName, local.y, blueprint.IsDock),
                 });
             }
             if (blueprint.pieces.Count == 0)
@@ -279,9 +284,11 @@ namespace OdinsPaths
                 return "No pieces built within " + radius + " m.";
             }
             string path = Blueprints.Save(blueprint);
+            string copy = PlanBuildFiles.Offer(path);
             Blueprints.Load();
             Relics.Register();
             return blueprint.pieces.Count + " pieces and " + blueprint.spots.Count + " spots, in " + from + ", written to " + path
+                + (copy != null ? " and " + copy : "")
                 + ". Check the guessed roles (pile below the deck, deck, floor, wall, roof, post, lamp, deco, clutter, keep); "
                 + "it is in use now.";
         }
@@ -308,39 +315,6 @@ namespace OdinsPaths
                 return a[1] == 0f ? null : new[] { a[1] };
             }
             return a;
-        }
-
-        /// <summary>A role from a piece's name and height: what stands below the deck or floor is a pile.</summary>
-        private static string Guess(string name, float y, bool dock)
-        {
-            string lower = name.ToLowerInvariant();
-            bool upright = lower.Contains("pole") || lower.Contains("pillar") || lower.Contains("log") || lower.Contains("post")
-                || lower.Contains("beam") || lower.Contains("block");
-            if (upright && y < -0.2f)
-            {
-                return "pile";
-            }
-            if (lower.Contains("roof"))
-            {
-                return "roof";
-            }
-            if (lower.Contains("wall") || lower.Contains("window") || lower.Contains("door") || lower.Contains("gate"))
-            {
-                return "wall";
-            }
-            if (lower.Contains("lantern") || lower.Contains("demister") || lower.Contains("torch") || lower.Contains("lamp"))
-            {
-                return "lamp";
-            }
-            if (upright && !lower.Contains("beam"))
-            {
-                return "post";
-            }
-            if (lower.Contains("floor") || lower.Contains("beam") || lower.Contains("stair"))
-            {
-                return dock ? "deck" : "floor";
-            }
-            return "deco";
         }
     }
 }
