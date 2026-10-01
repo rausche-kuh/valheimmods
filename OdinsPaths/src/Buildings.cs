@@ -292,6 +292,8 @@ namespace OdinsPaths
                 return null;
             }
             bool piles = Builder.HasStilts(parts);
+            // The pad is levelled under the floor the door opens onto.
+            float floor = Builder.DoorFloor(parts, foot);
             float edge = trail.Kind.Reach;
             Builder.Frame best = default;
             Vector2 bestRoad = Vector2.zero;
@@ -312,7 +314,7 @@ namespace OdinsPaths
                         Builder.Frame frame = Builder.Frame.Make(door, away, 0f).Entered(foot, inward);
                         // From the road's flat edge to just short of the door, at the grade a path may climb.
                         float rise = (edge + setback - Threshold - flat) * DoorGrade;
-                        if (!Site(harbour, min, max, piles, frame, roadHeight, rise, out float doorHeight, out float cost)
+                        if (!Site(harbour, min, max, piles, floor, frame, roadHeight, rise, out float doorHeight, out float cost)
                             || !PathClear(road + away * edge, door, harbour.Structures))
                         {
                             continue;
@@ -340,7 +342,7 @@ namespace OdinsPaths
                 Frame = best,
                 Min = min - Vector2.one * Pad.Apron,
                 Max = max + Vector2.one * Pad.Apron,
-                Height = best.Height(0f) - Pad.UnderFloor,
+                Height = best.Height(floor) - Pad.UnderFloor,
                 MaxCut = PadCut,
                 MaxFill = PadFill,
             };
@@ -368,7 +370,7 @@ namespace OdinsPaths
         /// costs. The ground under its box must be dry, clear of structures, this road, locations
         /// and the other door paths.
         /// </summary>
-        private static bool Site(Harbour harbour, Vector2 min, Vector2 max, bool piles, Builder.Frame frame, float roadHeight, float rise,
+        private static bool Site(Harbour harbour, Vector2 min, Vector2 max, bool piles, float floor, Builder.Frame frame, float roadHeight, float rise,
             out float door, out float cost)
         {
             door = roadHeight;
@@ -397,7 +399,7 @@ namespace OdinsPaths
             for (float height = roadHeight - rise; height <= roadHeight + rise + 0.01f; height += DoorStep)
             {
                 // The pad's level for a door at this height: just under the floor's top.
-                float level = height - frame.Anchor.y - Pad.UnderFloor;
+                float level = height + floor - frame.Anchor.y - Pad.UnderFloor;
                 float cut = 0f;
                 float fill = 0f;
                 float carried = 0f;

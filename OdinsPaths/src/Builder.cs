@@ -226,6 +226,24 @@ namespace OdinsPaths
             return true;
         }
 
+        /// <summary>
+        /// The height in the blueprint of the floor a door opens onto: the top of the highest floor
+        /// or deck within half a metre of its foot, else the foot itself. Not y 0, which a
+        /// blueprint may have on a floor up under its roof (RuinWoodHouse12's).
+        /// </summary>
+        public static float DoorFloor(List<Part> parts, Vector3 foot)
+        {
+            float floor = float.MinValue;
+            foreach (Part part in parts)
+            {
+                if (part.Stands && Mathf.Abs(part.Max.y - foot.y) <= 0.5f)
+                {
+                    floor = Mathf.Max(floor, part.Max.y);
+                }
+            }
+            return floor > float.MinValue ? floor : foot.y;
+        }
+
         /// <summary>The middle of a blueprint's floors, or of all its pieces if it has none.</summary>
         public static Vector2 Middle(List<Part> parts)
         {

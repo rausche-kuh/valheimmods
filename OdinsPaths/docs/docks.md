@@ -155,8 +155,9 @@ collider box at `pos`) and `"spots": [{"kind", "pos", "yaw"}]`. It still loads; 
 converts it.
 
 - **Frame.** A dock: origin the middle of its land end (where the road runs on), z out to sea,
-  x right looking out, y up from the deck's top there. A building: any frame, y up, y 0 its
-  floor's top; it is placed by its lowest door or its `dock` spot (above), not by its origin.
+  x right looking out, y up from the deck's top there. A building: any frame, y up; it is placed
+  by its lowest door or its `dock` spot (above), not by its origin, and its pad levelled under
+  the floor that door opens onto (`Builder.DoorFloor`), or the door's foot where it has none.
   An old-format building without a door: origin the middle of its front, z into it.
 - `kind` `dock` or `building`; `biomes` `Heightmap.Biome` names (`Meadows`, `BlackForest`,
   `Swamp`, `Mountain`, `Plains`, `Mistlands`, `AshLands`, `DeepNorth`), none for any;
