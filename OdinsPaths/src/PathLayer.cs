@@ -210,6 +210,8 @@ namespace OdinsPaths
             {
                 everyGoal.AddRange(goals);
             }
+            // Its own stage: the log named the Mistlands for slow frames that fell in here.
+            Progress.Stage("Looking at what stands in the way", 0f, 0.01f);
             // A network has thousands of starts; the areas are drawn around the few that matter.
             List<Vector2> positions = Start.Positions(PathSearch.Anchors(starts, outerGoals));
             List<Circle> locations = LocationsAround(positions, everyGoal);
@@ -225,9 +227,9 @@ namespace OdinsPaths
             // Backwards from the goals over the search's ellipses: what reaching a goal costs from
             // anywhere, sea crossings and dear biomes included. It guides every pass, and its
             // estimate from the network picks the passes.
+            Progress.Stage("Surveying the land", 0.01f, 0.03f, () => outcome.Survey?.Fraction ?? 0f);
             PathSearch shape = new PathSearch(starts, outerGoals, locations, structures, options.Kind, PathSearch.SurveyCell);
             outcome.Survey = PathSearch.Survey(outerGoals, shape.Contains, options.Kind);
-            Progress.Stage("Surveying the land", 0.01f, 0.03f, () => outcome.Survey.Fraction);
             options.Searching?.Invoke(outcome.Survey);
             yield return outcome.Survey.Run(budget);
             List<Pass> passes = options.Passes;

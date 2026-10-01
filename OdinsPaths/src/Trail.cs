@@ -420,7 +420,25 @@ namespace OdinsPaths
                 return Kind.Paint;
             }
             float built = Mathf.Min(Built[segment], Built[Mathf.Min(segment + 1, Built.Count - 1)]);
-            return Color.Lerp(Heightmap.m_paintMaskDirt, Kind.Paint, built);
+            return Handover(Heightmap.m_paintMaskDirt, Kind.Paint, built);
+        }
+
+        /// <summary>
+        /// From one paint to another, t of the way: the channels the second one fills rise over
+        /// the first half, the ones it empties fall over the second. A straight lerp from dirt to
+        /// stone is half of each midway, and the game clears grass only where a channel is over
+        /// one half (<c>Heightmap.IsCleared</c>), so grass grew in the middle of a fade (found
+        /// through Procedural Roads #32).
+        /// </summary>
+        public static Color Handover(Color from, Color to, float t)
+        {
+            float rise = Mathf.Clamp01(t * 2f);
+            float fall = Mathf.Clamp01(t * 2f - 1f);
+            return new Color(
+                Mathf.Lerp(from.r, to.r, to.r > from.r ? rise : fall),
+                Mathf.Lerp(from.g, to.g, to.g > from.g ? rise : fall),
+                Mathf.Lerp(from.b, to.b, to.b > from.b ? rise : fall),
+                Mathf.Lerp(from.a, to.a, to.a > from.a ? rise : fall));
         }
 
         /// <summary>The deeper cut of segment i..i+1's two ends.</summary>

@@ -129,6 +129,29 @@ server side only.
 - **Spurs end at the location's edge**, the Procedural Roads way; main roads still run up to the
   altar (levelling already stops at the location's circle) - look at a finished lay.
 
+## Their open PRs (read 2026-10-01)
+
+Fourteen open PRs (#19-#33, by a contributor, each tested in game) rework most of the mod;
+master is unchanged since 1.4.3. Fetch them with `git fetch origin pull/<n>/head:pr-<n>`; they
+stack, so diff each against the one it names as its base.
+
+- **Taken (2026-10-01):** the dirt → both → stone paint fade (#32, `laying.md`), broken
+  boulders cleared (#31), zones with two compilers left alone (#27), and from #27's time-sliced
+  bake queue the writer's frame budget and its cap on builder requests.
+- **On the roadmap:** compiler ownership (#27), location terrain at road ends and an
+  end-aware profile (#21), a batter for deep cuts (#20), border rocks (#27), ruined bridges
+  (#26), coverage (#29), manual road commands (#30).
+- **Not taken:** parallel islands (#28) - our roads start from the ones laid before, so they are
+  sequential by design; carving boulders chunk by chunk instead of removing them (#31) - more
+  work than it is worth for now; dirt near spawn (#32) - spurs already are dirt. The re-apply
+  on spawn that #15/#19 fight (stale roads, duplicate compilers, appended networks) does not
+  exist here: each zone's blob is written once.
+- **Their numbers, for scale:** a whole world 33 s to 284 s at load (#28, #29); one zone's
+  write ~10 ms (#22); a search up to 5.5 s, 100 of 146 failing (#22). Ours, from the 2026-10-01
+  log: 30-370 ms a main road's search on its own thread, under 2 s for its spurs.
+- **Game facts from them, unverified here:** `StaticPhysics` first checks 20 s after an object
+  wakes; the river core is `GetRiverWeight > 0.5`; a cart is 1.72 m wide; swim depth is 2 m.
+
 ## Still to look at in game
 
 - **Height agreement where roads meet:** Procedural Roads blends a new road's heights into an

@@ -6,8 +6,31 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 ## Up next
 
-- **Stutter:** check a start-up growth still stutters; the log's slowest frame per road names
-  the stage to fix (the writing is the likeliest).
+- **Stutter, if a growth still hitches** (see "To check in game"): count GCs per stage (the
+  writer allocates ~400 KB a zone, pool `Nearest`'s arrays), and make the clearing one zone a
+  frame with the structures already gathered.
+- **From Procedural Roads' PRs** (read 2026-10-01, `docs/prior-art.md`), in order:
+  - **Compiler ownership:** `TerrainWriter` sets `s_TCData` whoever owns the compiler; a
+    client digging there at the same time can wipe the road, or the road its digging. Defer
+    such a zone while the owner is a client in it (`IsInPeerActiveArea`), retry later.
+  - **Location terrain at road ends:** the game applies a location's own `TerrainModifier`
+    levelling before our deltas, and the writer's skip circles leave out the start and goal
+    locations (`PathLayer.LocationsAround`), so deltas there are off (theirs up to 9 m). Read
+    the prefab's level/smooth radius and keep the levelling out of it.
+  - **End-aware profile:** `Trail`'s ±5 point mean is one-sided at road ends and at the water
+    break - a shelf on slopes. Fit a line there instead.
+  - **Batter for deep cuts:** the shoulder is a fixed 1.5 m while a main road cuts up to 4 m;
+    widen it with the cut depth past ~2 m, cuts only.
+  - **Border rocks:** a new zone's clearing reads only its own paint, so a rock rooted there
+    over a road in the next zone stays. Read the neighbours' compilers within the rock's reach.
+  - **An explicit water floor** in the levelling (water + `ShoreMargin`); today only the profile
+    keeps it.
+  - **Ruined wooden bridges** for deep or wide rivers, built through `Builder`. Their verified
+    limits: 16 m free span (20 m falls), piers ~18 m at most, hammer turns in 22.5° steps (so
+    a level deck), crossings already reached by road cost half.
+  - **Coverage** in `paths grow all`: the share of land within 250 m of a road.
+  - **Release admin commands** for a manual road (`paths lay` is Debug only).
+  - **Roads drawn on the map** - their issue #8, nobody has it yet.
 - **Clearing:** a setting for it / all and every type?
 - **Coarse terrain cache** (`docs/prior-art.md`), once a whole growth's times are known.
 - **Release:** mod page, translations, icon, first Thunderstore upload.
@@ -18,17 +41,13 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - Swamp paths should be dirt
 - sign post for the main network
 - structure road ends: paint dirt without leveling - trying a wider area to mask not knowing the "stair" position
-- **Harbours** - docks flush with the road, the stone on the dock or beside the road, old
-  buildings beside it, all as JSON blueprints made in game with `docks ... edit` / `docks capture`
-  (reworked 2026-09-26, not run in game yet): check them, then rebuild the shipped blueprints in
-  game (pitched roofs, doors, a Mistlands building). What to check in `docs/docks.md`.
-  The blueprints themselves: the user makes their own with PlanBuild.
-- **The game's harbours first, the mod's docks as the fallback** - built 2026-09-27 (`Ports`,
-  `docs/docks.md`), not run in game yet; what to check is under "To check in game". Still open:
-  **find** the swamp location that looks like a dock (not named like one; the `SwampHut*` stand
-  on log piles) and whether it can serve the same way; spurs landing at a pier.
-- **A busy harbour.** Make a harbour look used, not abandoned: buildings are the first step,
-  then better condition than a ruin's, lit lamps, crates and barrels.
+- **Harbour blueprints:** rebuild the shipped ones (pitched roofs, doors, a Mistlands
+  building); the user makes them with PlanBuild (`docs/docks.md`).
+- **The game's harbours:** **find** the swamp location that looks like a dock (not named like
+  one; the `SwampHut*` stand on log piles) and whether it can serve as the Mistlands piers do;
+  spurs landing at a pier.
+- **A busy harbour.** Make a harbour look used, not abandoned: better condition than a ruin's,
+  lit lamps, crates and barrels.
 - **Wrecks at the harbours.** A `wreck` blueprint kind from the game's wreck parts
   (`shipwreck_karve_*`, `shipwreck_vikingship_*`; **verify** they spawn by name through
   `ZNetScene`), laid in the shallows beside a harbour so it feels alive.
@@ -48,6 +67,11 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   the sea to it): the pins on the berth and the pier's land end (the turn read from the crane),
   the road led down the pier and round the hut, the stone beside the land end (its height), no
   dock, buildings outside the harbour, how long a harbour's zone takes to generate (the log).
+- **Stutter:** a start-up growth's slowest frames in `Player.log` against the 110-265 ms of
+  2026-10-01 (before the writer's per-zone location filter, frame budget and request cap).
+- **Docks and harbour buildings** (`docs/docks.md`): never run yet.
+- **2026-10-01 changes:** no grass in a dirt/stone fade (`Trail.Handover`), a player's broken
+  boulder (`*_frac`) cleared off a road, no "more than one terrain compiler" warnings in the log.
 - **Other:** leaving the world mid-search, `paths reset` on a copy, Black Forest clearing, a lay
   out of a base, junction heights, `paths bench` at a biome border, snow in the Deep North.
 
@@ -71,4 +95,10 @@ Nothing is released. Risks to watch:
 - In a zone generated after its road, vegetation on the shoulder can float or sink a little.
 - A harbour stone's height beside the road (the lower of `Ground.Height` and the road) - verify.
 - A rock without meshes counts as 2.5 m wide; a scattered MineRock5 may be cleared early.
-- A player digging in a zone while the server rewrites it: last writer wins.
+- A player digging in a zone while the server rewrites it: last writer wins (see compiler
+  ownership above).
+- Our pre-written compiler in an ungenerated zone: if generation ever makes a second one, the
+  game keeps the one with more operations (`TerrainComp.Awake`) - ours has one. Verify no
+  location carries a `TerrainOp`.
+- `paths grow` crashed with a NullReferenceException in `DropLinePins` from `GrowRoutine`
+  (`src/Dev/PathPreview.cs`, Debug only), 2026-10-01 log.

@@ -43,6 +43,10 @@ exactly as `PaintCleared` does, and alpha stays the base mask's. Then write the 
   tame the ground the road had a gap: "flattened, but on a 45° angle without road" (third lay).
   Since then a main road too steep for stone is painted dirt there instead, fading out from 0.9
   (42°) to 1.3 (53°) (`TerrainWriter.SteepDirtFade`). **Verify** how the dirt stretches look.
+- **Fades between dirt and stone** (here and into the Mistlands) go dirt → both → stone
+  (`Trail.Handover`), never a straight lerp: the game clears grass only where a channel is over
+  0.5 (`Heightmap.IsCleared`), and a lerp is 0.5 of each midway (Procedural Roads #32,
+  2026-10-01). **Verify** no grass in a fade.
 - **The Mistlands** (2026-09-25; the first lay's roads there were useless, and paving the gentle
   stretches only, with a deeper cut, was still not it after the second): a road there is a dirt
   track that follows the ground - no stone, no levelling, no hairpin landings -, its kind's
@@ -68,7 +72,9 @@ exactly as `PaintCleared` does, and alpha stays the base mask's. Then write the 
   all - measured once per prefab as the boxes of its meshes seen from above (one per mesh, a
   level of detail inside another's box left out), in the prefab's unscaled space, then turned
   and scaled as its ZDO was placed, each box covered by a row of discs along its long side. A
-  boulder the path runs through goes however big it is; a long cliff beside it stays. Ore,
+  boulder the path runs through goes however big it is; a long cliff beside it stays. A boulder a
+  player has hit stands as its broken copy (`Destructible.m_spawnWhenDestroyed`, e.g.
+  `rock4_forest_frac`, scaled as the boulder), cleared like it (2026-10-01). Ore,
   nests, spawners and pickables stay, and so does anything within a location's measured
   footprint (`Footprints`, below) or within 10 m of a player-built piece (a grown sapling is the same prefab as a wild tree). No setting yet.
   **Verify** that a cleared cliff leaves no hole or floating piece.
@@ -120,8 +126,14 @@ exactly as `PaintCleared` does, and alpha stays the base mask's. Then write the 
   structure already stands within 4 m. Everything the mod places carries `OdinsPaths_Placed` on
   its ZDO, for the dev reset. **Verify** that the pole stands (it is a building piece with no
   support under it but the ground).
-- Throttle the writes: a few zones per frame. Each is a decompress-merge-compress of at most a
-  few KB.
+- Throttle the writes: zones while the frame's budget lasts, at least one. Each is a
+  decompress-merge-compress of at most a few KB. Only the locations overlapping the zone are
+  checked per vertex - all of a road's, up to 12 000, made the writer the start-up stutter
+  (2026-10-01, the log's slowest frames grew with the location count). At most a few zones are
+  asked of the game's heightmap builder at once: it is one thread, first come first served, and
+  the zones a walking player needs would wait behind a whole road's.
+- A zone with two terrain compilers is left alone and logged: the game destroys one when the
+  zone loads, and which one is not ours to guess.
 
 **Levelling** (config, default on and gentle):
 

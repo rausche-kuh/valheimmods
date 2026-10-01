@@ -25,8 +25,12 @@ namespace OdinsPaths
         internal const float Shoulder = 1.5f;
         /// <summary>Segments further apart along the trail than this (20 m) are different legs of it.</summary>
         private const int OtherLeg = Trail.OtherLeg;
-        /// <summary>At most this many zones a frame, and a second one only while the frame's budget lasts.</summary>
-        private const int ZonesPerFrame = 2;
+        /// <summary>
+        /// At most this many zones asked of the game's heightmap builder at once. It has one thread
+        /// for everything, first come first served, so a whole road's zones queued at once made the
+        /// zones a walking player needs wait behind them (found through Procedural Roads #27).
+        /// </summary>
+        private const int MaxRequested = 6;
         /// <summary>
         /// Around the sacrificial stones no levelling within this, fading in over <see cref="Shoulder"/>
         /// past it: the start temple levels its own ground, and a road's levelling on top of it was
@@ -68,31 +72,37 @@ namespace OdinsPaths
             Dictionary<Vector2s, List<int>> zones = ZonesNear(trail, reach);
             List<Vector2> temples = Planner.Temples();
 
-            // Ask the builder thread for all of them at once, take each as it is ready, and
-            // merge one or two per frame - one zone is a few ms of distance checks.
+            // Ask the builder thread for a few at a time, take each as it is ready, and merge
+            // zones while the frame's budget lasts, at least one a frame.
             float budget = OdinsPathsPlugin.SearchBudgetMs.Value;
             int total = zones.Count;
             System.Diagnostics.Stopwatch frame = new System.Diagnostics.Stopwatch();
-            HashSet<Vector2s> pending = new HashSet<Vector2s>(zones.Keys);
+            List<Vector2s> pending = new List<Vector2s>(zones.Keys);
+            List<Vector2s> requested = new List<Vector2s>();
             Dictionary<Vector2s, HeightmapBuilder.HMBuildData> built = new Dictionary<Vector2s, HeightmapBuilder.HMBuildData>();
             List<Vector2s> done = new List<Vector2s>();
-            while (pending.Count > 0 || built.Count > 0)
+            while (pending.Count > 0 || requested.Count > 0 || built.Count > 0)
             {
-                foreach (Vector2s zone in pending)
+                while (requested.Count + built.Count < MaxRequested && pending.Count > 0)
+                {
+                    requested.Add(pending[pending.Count - 1]);
+                    pending.RemoveAt(pending.Count - 1);
+                }
+                for (int i = requested.Count - 1; i >= 0; i--)
                 {
                     HeightmapBuilder.HMBuildData data = HeightmapBuilder.instance.RequestTerrain(
-                        ZoneSystem.GetZonePos(zone), width, scale, false, WorldGenerator.instance);
+                        ZoneSystem.GetZonePos(requested[i]), width, scale, false, WorldGenerator.instance);
                     if (data != null)
                     {
-                        built[zone] = data;
+                        built[requested[i]] = data;
+                        requested.RemoveAt(i);
                     }
                 }
-                pending.ExceptWith(built.Keys);
                 done.Clear();
                 frame.Restart();
                 foreach (KeyValuePair<Vector2s, HeightmapBuilder.HMBuildData> entry in built)
                 {
-                    if (done.Count == ZonesPerFrame || (done.Count > 0 && frame.Elapsed.TotalMilliseconds > budget))
+                    if (done.Count > 0 && frame.Elapsed.TotalMilliseconds > budget)
                     {
                         break;
                     }
@@ -103,7 +113,7 @@ namespace OdinsPaths
                 {
                     built.Remove(zone);
                 }
-                Progress.Set(1f - (float)(pending.Count + built.Count) / Mathf.Max(total, 1));
+                Progress.Set(1f - (float)(pending.Count + requested.Count + built.Count) / Mathf.Max(total, 1));
                 yield return null;
             }
         }
@@ -148,7 +158,16 @@ namespace OdinsPaths
             int pitch = width + 1;
             float scale = data.m_scale;
             Vector3 center = ZoneSystem.GetZonePos(zone);
-            ZDO compiler = FindCompiler(zone);
+            if (CountCompilers(zone, out ZDO compiler) > 1)
+            {
+                // The game keeps one and destroys the other as soon as the zone loads; which one
+                // is not ours to guess (Procedural Roads #27 leaves such zones alone too).
+                Debug.LogWarning("[OdinsPaths] Zone " + zone + ": more than one terrain compiler, left alone.");
+                result.Skipped++;
+                return;
+            }
+            // A road's search list holds thousands of locations; a zone overlaps a few at most.
+            locations = Overlapping(locations, new Vector2(center.x, center.z), width * scale * 0.5f);
             byte[] old = compiler != null ? compiler.GetByteArray(ZDOVars.s_TCData) : null;
             TerrainData terrain = old != null ? TerrainData.Decode(old, pitch) : new TerrainData(pitch);
             if (terrain == null)
@@ -242,7 +261,7 @@ namespace OdinsPaths
                     if (paintDistance < edge && steep > 0f && (baseHeight >= waterLevel + Trail.ShoreMargin || (level && texelRaised[index]))
                         && structures.Distance(texel, Structures.PieceReach) >= Structures.PieceReach
                         && Paint(terrain, data.m_baseMask[index], index, texel,
-                            Color.Lerp(Heightmap.m_paintMaskDirt, trail.PaintAt(texelSegment[index]), dirt > stone ? stone / dirt : 1f),
+                            Trail.Handover(Heightmap.m_paintMaskDirt, trail.PaintAt(texelSegment[index]), dirt > stone ? stone / dirt : 1f),
                             Mathf.Clamp01((edge - paintDistance) / kind.EdgeSoftness) * steep))
                     {
                         painted++;
@@ -450,19 +469,45 @@ namespace OdinsPaths
             return false;
         }
 
+        /// <summary>The circles that reach into the square of the given half size around center.</summary>
+        private static List<Circle> Overlapping(List<Circle> circles, Vector2 center, float half)
+        {
+            List<Circle> result = new List<Circle>();
+            foreach (Circle circle in circles)
+            {
+                float dx = Mathf.Max(Mathf.Abs(circle.Center.x - center.x) - half, 0f);
+                float dy = Mathf.Max(Mathf.Abs(circle.Center.y - center.y) - half, 0f);
+                if (dx * dx + dy * dy < circle.Radius * circle.Radius)
+                {
+                    result.Add(circle);
+                }
+            }
+            return result;
+        }
+
         internal static ZDO FindCompiler(Vector2s zone)
+        {
+            CountCompilers(zone, out ZDO first);
+            return first;
+        }
+
+        /// <summary>How many terrain compilers a zone has, and the first of them.</summary>
+        private static int CountCompilers(Vector2s zone, out ZDO first)
         {
             int hash = CompilerPrefab.GetStableHashCode();
             List<ZDO> objects = new List<ZDO>();
             ZDOMan.instance.FindObjects(zone, objects, new HashSet<ZoneSystem.SectorIndex>());
+            first = null;
+            int count = 0;
             foreach (ZDO zdo in objects)
             {
                 if (zdo.GetPrefab() == hash)
                 {
-                    return zdo;
+                    first = first ?? zdo;
+                    count++;
                 }
             }
-            return null;
+            return count;
         }
 
         /// <summary>A compiler ZDO as <c>ZNetView.Awake</c> would make it for the prefab.</summary>

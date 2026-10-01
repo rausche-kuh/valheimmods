@@ -428,6 +428,18 @@ namespace OdinsPaths
                 {
                     maxReach = Mathf.Max(maxReach, kind.Reach * Mathf.Max(kind.PrefabScale, veg.m_scaleMax));
                 }
+                // A boulder a player has hit stands as its broken copy (rock4_forest_frac and the
+                // like, Destructible.m_spawnWhenDestroyed, at the boulder's scale), which is no
+                // vegetation of its own (found through Procedural Roads #31).
+                GameObject broken = prefab.GetComponent<Destructible>()?.m_spawnWhenDestroyed;
+                if (broken != null && broken.GetComponent<ZNetView>() != null && KindOf(broken, out Kind brokenKind))
+                {
+                    clearable[broken.name.GetStableHashCode()] = brokenKind;
+                    if (brokenKind.Scales)
+                    {
+                        maxReach = Mathf.Max(maxReach, brokenKind.Reach * Mathf.Max(brokenKind.PrefabScale, veg.m_scaleMax));
+                    }
+                }
             }
             return clearable;
         }
