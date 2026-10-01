@@ -63,6 +63,7 @@ namespace OdinsPaths
             public int Seed;
             /// <summary>What is built already, kept clear of; null checks nothing.</summary>
             public Structures Structures;
+#pragma warning disable CS0649 // set only by the dev commands, which Release builds leave out
             /// <summary>Null: any dock blueprint of the land's biome that fits.</summary>
             public string Blueprint;
             /// <summary>0 a ruin, 1 as good as new; NaN: at random.</summary>
@@ -75,6 +76,7 @@ namespace OdinsPaths
             /// <summary>Exactly here, fitted to nothing, to rework in game (<see cref="Builder.Options.Edit"/>).</summary>
             public bool Edit;
             public long Creator;
+#pragma warning restore CS0649
         }
 
         /// <summary>A harbour's dock: where it goes along the trail, what was built, and how far inland its land end is.</summary>

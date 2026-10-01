@@ -65,6 +65,7 @@ namespace OdinsPaths
         /// <summary>How one lay is searched, and whether it is written. The defaults are the settings.</summary>
         internal sealed class Options
         {
+#pragma warning disable CS0649 // set only by the dev commands, which Release builds leave out
             /// <summary>
             /// The passes in order, widest cell first; the last one's route becomes the trail. Null:
             /// chosen by the distance to the goal (<see cref="ForDistance"/>).
@@ -82,6 +83,7 @@ namespace OdinsPaths
             public Action<PathSearch> Searching;
             /// <summary>Told of the road as soon as it is found, before it is written and before its spurs are searched.</summary>
             public Action<Outcome> Found;
+#pragma warning restore CS0649
 
             /// <summary>
             /// The passes for a road whose nearest start is this far from its nearest goal, with
@@ -184,8 +186,16 @@ namespace OdinsPaths
             List<int> entryOwners = null;
             Progress.Stage("Measuring the locations", 0f, 0.01f);
             yield return Footprints.Wait();
+            // The game's harbours on the way, their zones generated first where need be (Ports).
+            List<Ports.Port> ports = null;
+            if (options.Kind == RoadKind.Main)
+            {
+                Progress.Stage("Looking at the harbours on the way", 0f, 0.01f);
+                yield return Ports.Prepare(Start.Positions(PathSearch.Anchors(starts, goals)), goals, report, found => ports = found);
+            }
+            List<Vector2> berths = ports != null && ports.Count > 0 ? ports.ConvertAll(p => p.Berth) : null;
             Progress.Stage("Looking for a way into the Mistlands", 0f, 0.01f);
-            yield return Entries.Find(goals, (found, owners) => { entryGoals = found; entryOwners = owners; });
+            yield return Entries.Find(goals, (found, owners) => { entryGoals = found; entryOwners = owners; }, ports);
             if (entryGoals != null)
             {
                 // Eight entries a goal are too many goals again; the same rule keeps the likely ones.
@@ -203,6 +213,10 @@ namespace OdinsPaths
             // A network has thousands of starts; the areas are drawn around the few that matter.
             List<Vector2> positions = Start.Positions(PathSearch.Anchors(starts, outerGoals));
             List<Circle> locations = LocationsAround(positions, everyGoal);
+            // A harbour of the game's is no place to keep out of for the search, only for the
+            // levelling: its pieces are structures, and a crossing through it is led along its pier.
+            List<Circle> searched = berths == null ? locations
+                : locations.FindAll(c => !ports.Exists(p => (p.Centre - c.Center).sqrMagnitude < 1f));
             Structures structures = null;
             yield return Structures.Gather(Structures.Ellipses(positions, everyGoal), found => structures = found);
             outcome.Structures = structures.Count;
@@ -248,7 +262,8 @@ namespace OdinsPaths
             {
                 Pass pass = passes[p];
                 Func<Vector2, bool> bounds = line != null ? new Corridor(line, pass.Corridor).Contains : null;
-                PathSearch search = new PathSearch(starts, outerGoals, locations, structures, options.Kind, pass.Cell, bounds);
+                PathSearch search = new PathSearch(starts, outerGoals, searched, structures, options.Kind, pass.Cell, bounds);
+                search.Berths = berths;
                 if (line == null && pass.Cell <= PathSearch.FineCell && passes.Count == 1 && options.Passes == null)
                 {
                     // The fine pass alone is meant for a short road; if it floods, it starts over coarse.
@@ -307,7 +322,8 @@ namespace OdinsPaths
                 for (int p = 0; p < inner.Count; p++)
                 {
                     Func<Vector2, bool> bounds = innerLine != null ? new Corridor(innerLine, inner[p].Corridor).Contains : null;
-                    PathSearch search = new PathSearch(from, to, locations, structures, options.Kind, inner[p].Cell, bounds);
+                    PathSearch search = new PathSearch(from, to, searched, structures, options.Kind, inner[p].Cell, bounds);
+                    search.Berths = berths;
                     search.Limit = InnerLimit;
                     outcome.Inner.Add(search);
                     options.Searching?.Invoke(search);
@@ -338,6 +354,11 @@ namespace OdinsPaths
                 }
             }
             EndAtEdge(route, costs, outcome.Goal);
+            int piers = Ports.Splice(route, costs, ports);
+            if (piers > 0)
+            {
+                report("Led along the pier of " + piers + " of the game's harbours.");
+            }
             // From the network point itself, not its cell's centre: the junction lies on the old road.
             line = new List<Vector2>(route);
             line[0] = last.Origin.Position;

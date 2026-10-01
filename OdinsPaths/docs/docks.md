@@ -43,6 +43,31 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
   generated zones and later when a zone is generated (`Clearing.ClearNewZone`, by the pieces'
   `OdinsPaths_Building` mark). Another road running past is not checked.
 
+## The game's harbours first
+
+`src/Ports.cs` (built 2026-09-27, not run in game yet). A main road that crosses the sea near a
+`Mistlands_Harbour1` uses its dvergr pier instead of a dock of the mod's:
+
+- **Reading it.** Only a harbour whose zone is generated can be used: the location is turned by
+  the slope under it, sampled at random as its zone is generated, so its pier's direction is
+  unknown before. Before its search, a road has the zones of the harbours on its way generated
+  as the game generates the zones around a player (`ZoneSystem.SpawnZone` as a ghost), the
+  nearest to its goals first and only a few per road, and reads the turn from the harbour's
+  crane (else its guardstone), checked against where that piece belongs. Read harbours are kept
+  for the session.
+- **The search.** A step boarding or landing near a berth pays a share of the lump sum; the
+  harbour's circle is no obstacle to the search (its pieces are structures), but it still keeps
+  the levelling out. A pier's land end within reach of a Mistlands goal is an entry into them
+  (`Entries`).
+- **The route.** A route that crosses the harbour's footprint with the sea on one side and land
+  on the other is spliced (`Ports.Splice`): water off the berth, the berth, the land end, and
+  round the hut on the side the route goes on to.
+- **The harbour.** The stone stands beside the pier's land end, on the side the road does not
+  take, facing the pier; no dock; buildings as for any harbour, which keeps them outside the
+  harbour's footprint.
+- `paths ports [radius]` generates and reads the harbours around the player and pins each berth
+  and land end.
+
 ## Blueprint format
 
 Two files per blueprint: `<name>.json`, its settings, and `<name>.blueprint`, its pieces in
@@ -182,6 +207,16 @@ drop their third as any ruin does, each only where it is found anyway.
   once, when a player comes within 60 m, and never again.
 - The Mistlands' `DvergrHarbourPier` is the pier of `Mistlands_Harbour1`, read from its bundle
   (2026-09-26). `dvergrprops_*` are no build pieces (no `Piece`) but wear and drop wood and copper.
+- **`Mistlands_Harbour1`** (bundle `c920e237` and the location list, 2026-09-27): slope rotation
+  (`ZoneSystem.PlaceLocations`: the location's z points down the slope, out to sea, rounded to
+  22.5°, from random samples), snapped to the water, its origin at the water's edge. The pier
+  runs inland from the origin, 6 m wide, of `dvergrprops_wood_beam` planks on
+  `dvergrprops_wood_pole` piles, with three `dverger_demister`, the `dvergrtown_wood_crane` and a
+  `dverger_guardstone` at its sea end and a `Spawner_DvergerArbalest` on it. The walled hut
+  (`Spawner_DvergerMage`, gate facing inland) stands right behind the land end. Its terrain
+  modifiers raise the ground at the land end to the deck's height (1.5 m above the water) and
+  dredge the berth. Every piece with a `ZNetView` is spawned as its own ZDO at the location's
+  position and turn (`SpawnLocation`), so the server can read them once the zone is generated.
 - **Deep North** (bundles, 2026-09-26): Frostwood builds the *stave* set (`stave_pole_2m/_4m`,
   `stave_beam_2m/_4m`, `stave_wall_*`, material Timberwood) and the *scale* shingles
   (`scale_wall_2x2`, `scale_wall_roof_26/45/67`); no floor, so docks lay beams. Ice:

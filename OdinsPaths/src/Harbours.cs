@@ -394,8 +394,21 @@ namespace OdinsPaths
             {
                 return nearest;
             }
-            // The dock first: the stone may stand on it.
             int seed = Mathf.RoundToInt(shore.x) * 73856093 ^ Mathf.RoundToInt(shore.y) * 19349663;
+            Ports.Port port = Ports.At(shore);
+            if (port != null)
+            {
+                // A harbour of the game's: its pier is the dock, the stone stands beside it.
+                Ports.Stone(port, trail, out Vector3 at, out Quaternion facing);
+                ZDO atPier = Landings.Spawn(stone, at, facing);
+                stones.Add(atPier);
+                placed.Add(atPier.m_uid);
+                structures.Add(new Vector2(at.x, at.z));
+                Debug.Log("[OdinsPaths] Harbour at the pier of " + port + ".");
+                placed.AddRange(Buildings.ForHarbour(trail, landing, Ports.LandEndAlong(port, trail, landing), structures, seed + 1));
+                return atPier;
+            }
+            // The dock first: the stone may stand on it.
             Docks.Harbour dock = Docks.ForHarbour(trail, landing, structures, seed);
             placed.AddRange(dock.Built.Placed);
             Vector3 position;

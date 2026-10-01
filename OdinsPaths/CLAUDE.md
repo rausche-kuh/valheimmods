@@ -48,6 +48,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `src/Lamps.cs` | Demister road posts every 48 m in the Mistlands. |
 | `src/Footprints.cs` | How far a location's buildings reach, measured once, cached per game version. |
 | `src/Landings.cs` | Landings at sea crossings; `Spawn` marks what the mod places. |
+| `src/Ports.cs` | The game's harbours (Mistlands piers) used before a dock: read, cheaper landing, the route down the pier. |
 | `src/Harbours.cs` | Harbour stones: the mod's vegvisir prefab, linked across the sea. |
 | `src/Blueprints.cs` | Harbour blueprints: settings JSON + PlanBuild `.blueprint`, loading (`assets/harbours/`, config), saving. |
 | `src/Json.cs` | A small JSON reader for the blueprints (`JsonUtility` left their lists empty). |

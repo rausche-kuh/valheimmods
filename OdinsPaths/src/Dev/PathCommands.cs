@@ -1,5 +1,6 @@
 using HarmonyLib;
 using BepInEx.Configuration;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -13,7 +14,7 @@ namespace OdinsPaths
     public partial class OdinsPathsPlugin
     {
         private const string Usage = "paths facts | bench [cells] | where <location> | costs [<name> <value> ...] | search <target> [pass ...] | "
-            + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | "
+            + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | ports [radius] | "
             + "network | forget | clearpins | reset [confirm]   (target: <x> <z> or a location name; "
             + "pass: a cell in metres, or cell:corridor - one alone is the coarse cell before the settings' fine pass, 0 = none; "
             + "main = a paved main road, the default, spur = a dirt spur; solo = from the player alone, not the network)";
@@ -85,6 +86,7 @@ namespace OdinsPaths
                         case "show": Say(args.Context, Show(args)); break;
                         case "relink": Say(args.Context, Relink()); break;
                         case "auto": Say(args.Context, Auto(args)); break;
+                        case "ports": Ports(args); break;
                         default: Say(args.Context, Usage); break;
                     }
                 }, isCheat: true);
@@ -238,6 +240,58 @@ namespace OdinsPaths
                     .Append(instance.m_placed ? "  generated" : "");
             }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// "paths ports [radius]": the game's harbours (<see cref="OdinsPaths.Ports"/>) within the
+        /// radius of the player (1500 m), their zones generated where need be (the nearest few),
+        /// each pinned at its berth and its pier's land end, with the turn read from it.
+        /// </summary>
+        private static void Ports(Terminal.ConsoleEventArgs args)
+        {
+            Terminal terminal = args.Context;
+            Player player = Player.m_localPlayer;
+            if (ZNet.instance == null || !ZNet.instance.IsServer() || player == null)
+            {
+                Say(terminal, "paths ports runs on the server with a local player - a local game, or its host.");
+                return;
+            }
+            if (Grower.Busy)
+            {
+                Say(terminal, "Still busy with the last one.");
+                return;
+            }
+            float radius = args.Length > 2 && float.TryParse(args[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float r) ? r : 1500f;
+            Vector2 at = new Vector2(player.transform.position.x, player.transform.position.z);
+            Grower.Busy = true;
+            Instance.StartCoroutine(ShowPorts(terminal, at, radius));
+        }
+
+        private static IEnumerator ShowPorts(Terminal terminal, Vector2 at, float radius)
+        {
+            List<OdinsPaths.Ports.Port> found = null;
+            try
+            {
+                yield return OdinsPaths.Ports.Prepare(p => Vector2.Distance(p, at) <= radius, new List<Vector2> { at },
+                    text => Say(terminal, text), ports => found = ports);
+            }
+            finally
+            {
+                Grower.Busy = false;
+            }
+            if (found == null || found.Count == 0)
+            {
+                Say(terminal, "No " + OdinsPaths.Ports.LocationName + " read within " + radius.ToString("F0") + " m ('paths where "
+                    + OdinsPaths.Ports.LocationName + "' lists them; a few zones are generated per call).");
+                yield break;
+            }
+            foreach (OdinsPaths.Ports.Port port in found)
+            {
+                Pin(port.Berth, Minimap.PinType.Icon4, "", HarbourColour, port + ": the berth");
+                Pin(port.LandEnd, Minimap.PinType.Icon3, "", HarbourColour, port + ": the pier's land end");
+                Say(terminal, port + "  " + Vector2.Distance(port.Centre, at).ToString("F0") + " m, land end at "
+                    + port.LandEnd.ToString("F0") + ", berth at " + port.Berth.ToString("F0"));
+            }
         }
 
         /// <summary>

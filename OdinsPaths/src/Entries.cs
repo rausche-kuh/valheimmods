@@ -32,10 +32,12 @@ namespace OdinsPaths
         /// <summary>
         /// The goals as a search should see them: every goal outside the Mistlands as it is (owner
         /// -1), and for every one inside, its entries (owner: the goal's index). Hands (null,
-        /// null) back when no goal is in the Mistlands, or none has an entry.
+        /// null) back when no goal is in the Mistlands, or none has an entry. The land end of every
+        /// harbour of the game's within reach of a goal is an entry too (<see cref="Ports"/>).
         /// </summary>
-        public static IEnumerator Find(List<Vector2> goals, Action<List<Vector2>, List<int>> done)
+        public static IEnumerator Find(List<Vector2> goals, Action<List<Vector2>, List<int>> done, List<Ports.Port> ports = null)
         {
+            List<Vector2> piers = ports != null ? ports.ConvertAll(p => p.LandEnd) : new List<Vector2>();
             WorldGenerator gen = WorldGenerator.instance;
             bool any = false;
             foreach (Vector2 goal in goals)
@@ -62,6 +64,7 @@ namespace OdinsPaths
                         continue;
                     }
                     List<Vector2> entries = Around(gen, goals[g], water);
+                    entries.AddRange(piers.FindAll(p => Vector2.Distance(p, goals[g]) <= MaxDistance));
                     if (entries.Count == 0)
                     {
                         // Nowhere to come in from: searched to as it is, cliffs and all.

@@ -23,17 +23,10 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   (reworked 2026-09-26, not run in game yet): check them, then rebuild the shipped blueprints in
   game (pitched roofs, doors, a Mistlands building). What to check in `docs/docks.md`.
   The blueprints themselves: the user makes their own with PlanBuild.
-- **The game's harbours first, the mod's docks as the fallback.** `Mistlands_Harbour1` (dvergr
-  pier, crane, guardstone, a walled hut with dvergr spawners) stands on the Mistlands' edge,
-  snapped to the water: the game's only harbour location, and a natural way into the Mistlands.
-  A crossing landing there (or boarding) uses its pier instead of a dock of the mod's: the search
-  prefers its shore (an entry in `Entries`, or a cheaper landing near it), the stone goes where
-  the pier meets the land, and buildings grow beside the road. The server knows every harbour
-  from `ZoneSystem.m_locationInstances` before its zone is generated, but its objects spawn only
-  then: build nothing in its footprint until they have, and measure that footprint
-  (`Footprints`) - its pieces reach past its exterior radius. **Find** the swamp location that
-  looks like a dock (not named like one; the `SwampHut*` stand on log piles) and whether it can
-  serve the same way.
+- **The game's harbours first, the mod's docks as the fallback** - built 2026-09-27 (`Ports`,
+  `docs/docks.md`), not run in game yet; what to check is under "To check in game". Still open:
+  **find** the swamp location that looks like a dock (not named like one; the `SwampHut*` stand
+  on log piles) and whether it can serve the same way; spurs landing at a pier.
 - **A busy harbour.** Make a harbour look used, not abandoned: buildings are the first step,
   then better condition than a ruin's, lit lamps, crates and barrels.
 - **Wrecks at the harbours.** A `wreck` blueprint kind from the game's wreck parts
@@ -51,6 +44,10 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 ## To check in game
 
 - **Names:** `$npc_haldor` / `hildir` / `bogwitch` in the messages are guesses.
+- **The game's harbours** (`paths ports` near a `Mistlands_Harbour1`, then a `paths lay` across
+  the sea to it): the pins on the berth and the pier's land end (the turn read from the crane),
+  the road led down the pier and round the hut, the stone beside the land end (its height), no
+  dock, buildings outside the harbour, how long a harbour's zone takes to generate (the log).
 - **Other:** leaving the world mid-search, `paths reset` on a copy, Black Forest clearing, a lay
   out of a base, junction heights, `paths bench` at a biome border, snow in the Deep North.
 

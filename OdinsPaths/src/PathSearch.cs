@@ -213,6 +213,8 @@ namespace OdinsPaths
             public float Sea;
             /// <summary>The share on lava, in the Ashlands.</summary>
             public float Lava;
+            /// <summary>Near a berth of the game's harbours (<see cref="Berths"/>): boarding or landing here is cheaper.</summary>
+            public bool Berth;
             /// <summary>Outside the bounds: never sampled, never entered.</summary>
             public bool Outside;
             /// <summary>The search's own state, kept with the ground in one table (<see cref="CellMap"/>).</summary>
@@ -324,6 +326,13 @@ namespace OdinsPaths
         {
             guide = survey.CostOf;
         }
+
+        /// <summary>
+        /// The berths of the game's harbours on the way (<see cref="Ports"/>), before <see cref="Run"/>:
+        /// a step boarding or landing within <see cref="Ports.Reach"/> of one pays
+        /// <see cref="Ports.Share"/> of the lump sum, so a crossing sets out from a pier that is there.
+        /// </summary>
+        public List<Vector2> Berths;
 
         /// <summary>Whether a point is inside this search's bounds - its ellipses, or the rule it was given.</summary>
         public bool Contains(Vector2 p) => InBounds(p);
@@ -730,6 +739,10 @@ namespace OdinsPaths
             // each. The search runs the way the player walks, from the network to the goal.
             float shore = to.Sea - from.Sea;
             float lump = shore > 0f ? boardingCost * shore : landingCost * -shore;
+            if (from.Berth || to.Berth)
+            {
+                lump *= Ports.Share;
+            }
             return length * factor * (to.Factor > 0f ? to.Factor : 1f) + lump;
         }
 
@@ -825,6 +838,11 @@ namespace OdinsPaths
                 if (structures.Distance(p, structureRadius) < structureRadius)
                 {
                     cell.Factor *= StructureFactor;
+                }
+                if (Berths != null)
+                {
+                    float reach = Ports.Reach + CellSize * 0.5f;
+                    cell.Berth = Berths.Exists(b => (b - p).sqrMagnitude < reach * reach);
                 }
             }
             index = cells.Add(key);
