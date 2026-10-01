@@ -24,6 +24,7 @@ released: `VERSION` stays 0.1.0, `package/icon.png` is a placeholder.
 | `docs/docks.md` | Docks and harbour buildings: placement, blueprint format, making them with PlanBuild. |
 | `docs/placement.md` | Fitting docks, buildings, bridges to the terrain: other games, what is built, what is left. |
 | `docs/ferry.md` | The night ferryman at the harbours (plan). |
+| `docs/signposts.md` | Signposts at forks and harbours: hints, regions, lines per way, placing. |
 | `docs/prior-art.md` | Procedural Roads and `PLAN.md` weighed, why no Jötunn. |
 
 ## Source map
@@ -54,11 +55,12 @@ released: `VERSION` stays 0.1.0, `package/icon.png` is a placeholder.
 | `src/Docks.cs` | A harbour's dock: flush with the road, fitted to the shore. |
 | `src/Buildings.cs` | Old buildings at a harbour: door at the road's height, on a pad, a path to it; or onto the dock. |
 | `src/Pad.cs` | A building's levelled ground. |
+| `src/Signposts.cs` | Posts at forks and harbours: the network as a graph, lines per way, placed and refreshed. |
 | `src/Traders.cs` | A trader settled at its road's end: the other camps dropped, the icon on every map. |
 | `src/Relics.cs` | The furniture: game pieces copied to recover nothing, refuse the hammer. |
 | `src/Clearing.cs` | Removes trees, rocks and scenery from a path; the `SpawnZone` patch. |
 | `src/PathLayer.cs` | One road: search passes → trail → write → clear → landings; `LaySpurs`. |
-| `src/Dev/PathCommands.cs` | `paths` commands: facts, search, lay, grow, undo, reset… (Debug only). |
+| `src/Dev/PathCommands.cs` | `paths` commands: facts, search, lay, grow, undo, reset, signs… (Debug only). |
 | `src/Dev/PathPreview.cs` | `paths preview` / `show` / `auto`, the pins and their tooltips (Debug only). |
 | `src/Dev/DockCommands.cs` | `docks` commands: build, undo, capture, export, import… (Debug only). |
 | `src/Dev/PlanBuildFiles.cs` | `docks export` / `import` through PlanBuild's folder (Debug only). |

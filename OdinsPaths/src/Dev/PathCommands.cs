@@ -14,7 +14,7 @@ namespace OdinsPaths
     public partial class OdinsPathsPlugin
     {
         private const string Usage = "paths facts | bench [cells] | where <location> | costs [<name> <value> ...] | search <target> [pass ...] | "
-            + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | ports [radius] | "
+            + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | ports [radius] | signs [place] | "
             + "network | forget | clearpins | reset [confirm]   (target: <x> <z> or a location name; "
             + "pass: a cell in metres, or cell:corridor - one alone is the coarse cell before the settings' fine pass, 0 = none; "
             + "main = a paved main road, the default, spur = a dirt spur; solo = from the player alone, not the network)";
@@ -87,6 +87,7 @@ namespace OdinsPaths
                         case "relink": Say(args.Context, Relink()); break;
                         case "auto": Say(args.Context, Auto(args)); break;
                         case "ports": Ports(args); break;
+                        case "signs": Signs(args); break;
                         default: Say(args.Context, Usage); break;
                     }
                 }, isCheat: true);
@@ -781,6 +782,12 @@ namespace OdinsPaths
                 {
                     Say(terminal, done + " roads in " + (total.ElapsedMilliseconds / 1000f).ToString("F1") + " s.");
                 }
+                // As the end of a growth does: the network as it now stands gets its posts.
+                if (write && done > 0 && world == ZDOMan.instance)
+                {
+                    yield return Grower.Guarded(Signposts.Refresh(network, report => Say(terminal, "Signposts: " + report + ".")),
+                        e => Say(terminal, "Signposts failed: " + e));
+                }
             }
             finally
             {
@@ -1077,6 +1084,48 @@ namespace OdinsPaths
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// "paths signs": every signpost the network asks for, its boards in the log and a pin at
+        /// each; "paths signs place": put them up (and take down the ones the network lost), as
+        /// the end of a growth does.
+        /// </summary>
+        private static void Signs(Terminal.ConsoleEventArgs args)
+        {
+            Terminal terminal = args.Context;
+            Network network = Network.Current;
+            if (network == null)
+            {
+                Say(terminal, "Signposts are the server's: run it on the server (the host).");
+                return;
+            }
+            if (Grower.Busy)
+            {
+                Say(terminal, "A growth or a lay is running; try again when it is done.");
+                return;
+            }
+            bool place = args.Length > 2 && args[2].ToLowerInvariant() == "place";
+            Grower.Busy = true;
+            ZDOMan world = ZDOMan.instance;
+            IEnumerator work = place
+                ? Signposts.Refresh(network, report => Say(terminal, "Signposts: " + report + "."))
+                : Signposts.Plan(network, posts =>
+                {
+                    foreach (Signposts.Post post in posts)
+                    {
+                        Say(terminal, post.ToString());
+                        Pin(post.Position, Minimap.PinType.Icon2, "", SignColour, post.ToString());
+                    }
+                    Say(terminal, posts.Count + " signposts planned; 'paths signs place' puts them up.");
+                });
+            Instance.StartCoroutine(Run());
+
+            IEnumerator Run()
+            {
+                yield return Grower.Guarded(work, e => Say(terminal, "Signposts failed: " + e));
+                Grower.Release(world);
+            }
         }
 
         private static void Say(Terminal terminal, string text)

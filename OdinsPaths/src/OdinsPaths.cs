@@ -126,6 +126,7 @@ namespace OdinsPaths
             RoadKind.Bind(Config);
             RoadKind.UpgradeDefaults();
             Docks.Bind(Config);
+            Signposts.Bind(Config);
             GrowNetwork = Config.Bind("Network", "Grow", true,
                 "Grow the road network: when the world is up, and after every night slept through. Off, " +
                 "the roads already laid stay and no new ones come.");

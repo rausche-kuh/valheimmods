@@ -210,6 +210,16 @@ namespace OdinsPaths
                     why = "more became due meanwhile";
                 }
                 while (again && ZDOMan.instance == world && Ready());
+                // Once, at the end of a growth that laid something: new forks get a post, changed ones new boards.
+                if (laid > 0 && ZDOMan.instance == world && Ready())
+                {
+                    System.Exception error = null;
+                    yield return Guarded(Signposts.Refresh(Network.Current), e => error = e);
+                    if (error != null)
+                    {
+                        Debug.LogError("[OdinsPaths] Putting up the signposts failed. " + error);
+                    }
+                }
                 if (Progress.Active)
                 {
                     Progress.End();

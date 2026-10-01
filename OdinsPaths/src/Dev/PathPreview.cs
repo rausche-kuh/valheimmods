@@ -26,6 +26,7 @@ namespace OdinsPaths
         private static readonly Color SpurColour = new Color(1f, 0.55f, 0.05f);
         private static readonly Color HarbourColour = new Color(0.2f, 0.5f, 1f);
         private static readonly Color FrontColour = new Color(1f, 0.2f, 1f);
+        private static readonly Color SignColour = new Color(0.55f, 0.95f, 0.35f);
 
         private const string Legend = "Pins: red skull = the target a road leads to (boss, trader, base), grey skull = another instance "
             + "of it, orange fire = a point of interest with a spur, grey fire = one looked at and passed, white house = a hub, pale orb = "

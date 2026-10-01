@@ -2,12 +2,16 @@
 
 The design behind each entry is in `docs/`: `architecture.md` (every source file),
 `foundations.md` (terrain data, triggers, the facts verified in game), `search.md`, `laying.md`,
-`network.md`, `biomes.md`, `docks.md`, `prior-art.md`.
+`network.md`, `biomes.md`, `docks.md`, `signposts.md`, `prior-art.md`.
 
 ## Up next
 
 - **Stutter, if a growth still hitches** (see "To check in game"): a harbour's dock and buildings
   over frames (`Builder`); the clearing one zone a frame with the structures already gathered.
+- **Signposts** (built 2026-10-01, `docs/signposts.md`): run `paths signs` / `paths signs place`
+  in game - its "To check in game" list. Then: a post at the sacrificial stones and at a base,
+  spur forks (a single board naming the spur's place, behind a setting), the words as
+  translations.
 - **From Procedural Roads' PRs** (read 2026-10-01, `docs/prior-art.md`), in order:
   - **Location terrain at road ends:** the game applies a location's own `TerrainModifier`
     levelling before our deltas, and the writer's skip circles leave out the start and goal
@@ -35,7 +39,6 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - Connection of bases
 - **Webbing** networks get addtional paths in between
 - Swamp paths should be dirt
-- sign post for the main network
 - structure road ends: paint dirt without leveling - trying a wider area to mask not knowing the "stair" position
 - **Harbour blueprints:** only the bare minimum ships, to be replaced: `WoodJetty` (the one
   dock, old format) and `WoodHut` (the one building). Every biome builds those until it has
@@ -91,7 +94,6 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 ## Later
 
-- Signposts where roads meet (a vanilla `Sign`, text = where it leads).
 - Spurs to portals and to dungeons a player has entered.
 - Wear: busy spurs widen or turn to stone, as AntTrails does.
 
