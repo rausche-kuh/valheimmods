@@ -123,7 +123,7 @@ namespace OdinsPaths
     }
 
     /// <summary>
-    /// A place something may go (<see cref="Spots"/>): "chest", "enemy", furniture from the deco
+    /// A place something may go (<see cref="Spots"/>): "chest", "barrel", "enemy", furniture from the deco
     /// list - "deco_wall" on a wall, "deco_hanging" from a ceiling, "deco_h1" standing no higher
     /// than a wall, "deco_h2" than two -, "stone" (a dock's harbour stone), or "dock" (where a
     /// building joins a dock). In a .blueprint a sign reading its kind, pos its foot, yaw its turn.
@@ -142,6 +142,8 @@ namespace OdinsPaths
     internal static class Spots
     {
         public const string Chest = "chest";
+        /// <summary>Where the chest's loot may be in a barrel instead.</summary>
+        public const string Barrel = "barrel";
         public const string Enemy = "enemy";
         public const string Stone = "stone";
         public const string Dock = "dock";
@@ -154,7 +156,7 @@ namespace OdinsPaths
         /// <summary>What the furniture spots were before they had kinds: standing, a wall high.</summary>
         private const string Old = "deco";
 
-        public const string Names = "chest, enemy, stone, dock, deco_wall, deco_hanging, deco_h1 or deco_h2";
+        public const string Names = "chest, barrel, enemy, stone, dock, deco_wall, deco_hanging, deco_h1 or deco_h2";
 
         /// <summary>A sign's text as a spot's kind: trimmed, lower case, the old "deco" as deco_h1.</summary>
         public static string Normal(string text)
@@ -166,7 +168,7 @@ namespace OdinsPaths
         public static bool Is(string text)
         {
             text = Normal(text);
-            return text == Chest || text == Enemy || text == Stone || text == Dock || IsDeco(text);
+            return text == Chest || text == Barrel || text == Enemy || text == Stone || text == Dock || IsDeco(text);
         }
 
         public static bool IsDeco(string kind) => kind == Wall || kind == Hanging || IsStanding(kind);

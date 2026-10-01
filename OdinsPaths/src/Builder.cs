@@ -332,7 +332,7 @@ namespace OdinsPaths
                     placer.Part(parts[i]);
                 }
             }
-            ExtendPiles(parts, gone, frame, placer);
+            ExtendPiles(parts, gone, frame, placer, options.Building);
 
             List<BlueprintSpot> spots = new List<BlueprintSpot>();
             foreach (BlueprintSpot spot in blueprint.spots)
@@ -471,13 +471,44 @@ namespace OdinsPaths
             return removed;
         }
 
-        /// <summary>The lowest pile of each column (the piles within 0.3 m of each other across), carried on down to the ground.</summary>
-        private static void ExtendPiles(List<Part> parts, bool[] gone, Frame frame, Placer placer)
+        /// <summary>
+        /// Whether a part carries its blueprint down to the ground: a pile, or in a building a post
+        /// standing at its bottom (no higher than its lowest floor, deck or pile), as a hut's stilts.
+        /// </summary>
+        internal static bool Stilt(Part part, float bottom, bool building)
         {
+            return part.Role == Role.Pile || (building && part.Role == Role.Post && part.Min.y <= bottom + 0.3f);
+        }
+
+        /// <summary>The bottom of a blueprint: the lowest of its floors, decks and piles.</summary>
+        internal static float Bottom(List<Part> parts)
+        {
+            float bottom = float.MaxValue;
+            foreach (Part part in parts)
+            {
+                if (part.Stands || part.Role == Role.Pile)
+                {
+                    bottom = Mathf.Min(bottom, part.Min.y);
+                }
+            }
+            return bottom;
+        }
+
+        /// <summary>Whether a building has anything to carry it down to the ground.</summary>
+        internal static bool HasStilts(List<Part> parts)
+        {
+            float bottom = Bottom(parts);
+            return parts.Exists(part => Stilt(part, bottom, true));
+        }
+
+        /// <summary>The lowest stilt of each column (those within 0.3 m of each other across), carried on down to the ground.</summary>
+        private static void ExtendPiles(List<Part> parts, bool[] gone, Frame frame, Placer placer, bool building)
+        {
+            float bottom = Bottom(parts);
             List<int> lowest = new List<int>();
             for (int i = 0; i < parts.Count; i++)
             {
-                if (gone[i] || parts[i].Role != Role.Pile)
+                if (gone[i] || !Stilt(parts[i], bottom, building))
                 {
                     continue;
                 }
@@ -497,11 +528,11 @@ namespace OdinsPaths
                 Vector2 at = frame.Flat(pile.Centre.x, pile.Centre.y);
                 float ground = frame.GroundAt(at.x, at.y);
                 float height = Mathf.Max(0.5f, pile.Max.y - pile.Min.y);
-                float bottom = pile.Min.y;
-                for (int k = 1; k <= MaxPileStack && frame.Height(bottom) > ground - 0.3f; k++)
+                float foot = pile.Min.y;
+                for (int k = 1; k <= MaxPileStack && frame.Height(foot) > ground - 0.3f; k++)
                 {
                     placer.Extension(pile, height * k);
-                    bottom -= height;
+                    foot -= height;
                 }
             }
         }
@@ -559,27 +590,34 @@ namespace OdinsPaths
             return false;
         }
 
-        /// <summary>The chest first (on a chest spot, else a standing deco spot), then furniture on the deco spots, then the enemies, then clutter.</summary>
-        private static void Furnish(Blueprint blueprint, List<Part> parts, bool[] gone, List<BlueprintSpot> spots, Placer placer,
-            Options options, float decay, System.Random rng, Result result)
+        /// <summary>
+        /// The chest's loot first (in a chest on a chest spot or a barrel on a barrel spot, one of them
+        /// at random; else a chest on a standing deco spot), then furniture on the deco spots, then
+        /// the enemies, then clutter.
+        /// </summary>
+        private static void Furnish(Blueprint blueprint, List<Part> parts, bool[] gone, List<BlueprintSpot> spots,
+            Placer placer, Options options, float decay, System.Random rng, Result result)
         {
             if (rng.NextDouble() < options.ChestChance)
             {
-                int at = Take(spots, Spots.Chest, rng);
+                int at = Take(spots, rng, Spots.Chest, Spots.Barrel);
                 if (at < 0)
                 {
-                    at = Take(spots, Spots.Low, rng);
+                    at = Take(spots, rng, Spots.Low);
                 }
                 if (at < 0)
                 {
-                    at = Take(spots, Spots.High, rng);
+                    at = Take(spots, rng, Spots.High);
                 }
                 Vector3 where = at >= 0 ? spots[at].Position : Free(parts, gone, options.Dock, rng);
+                bool barrel = at >= 0 && spots[at].kind == Spots.Barrel;
                 if (at >= 0)
                 {
                     spots.RemoveAt(at);
                 }
-                result.Chest = placer.Loose(Chest(options.Biome), where, 90f * rng.Next(4), Anchor.Bottom);
+                string chest = Chest(options.Biome);
+                ZDO zdo = placer.Loose(barrel ? BarrelPrefab : chest, where, 90f * rng.Next(4), Anchor.Bottom);
+                result.Chest = zdo != null && (!barrel || Fill(zdo, chest));
             }
             foreach (BlueprintSpot spot in spots)
             {
@@ -594,13 +632,13 @@ namespace OdinsPaths
                 int count = 1 + rng.Next(3);
                 for (int k = 0; k < count; k++)
                 {
-                    int at = Take(spots, Spots.Enemy, rng);
+                    int at = Take(spots, rng, Spots.Enemy);
                     Vector3 where = at >= 0 ? spots[at].Position : Free(parts, gone, options.Dock, rng);
                     if (at >= 0)
                     {
                         spots.RemoveAt(at);
                     }
-                    if (placer.Loose(spawners[rng.Next(spawners.Length)], where + Vector3.up * 0.5f, 0f, Anchor.Pivot))
+                    if (placer.Loose(spawners[rng.Next(spawners.Length)], where + Vector3.up * 0.5f, 0f, Anchor.Pivot) != null)
                     {
                         result.Enemies++;
                     }
@@ -629,14 +667,14 @@ namespace OdinsPaths
             }
         }
 
-        /// <summary>A random spot of a kind, as an index into spots; -1 if none.</summary>
-        private static int Take(List<BlueprintSpot> spots, string kind, System.Random rng)
+        /// <summary>A random spot of the kinds, as an index into spots; -1 if none.</summary>
+        private static int Take(List<BlueprintSpot> spots, System.Random rng, params string[] kinds)
         {
             int found = -1;
             int seen = 0;
             for (int i = 0; i < spots.Count; i++)
             {
-                if (spots[i].kind == kind && rng.Next(++seen) == 0)
+                if (System.Array.IndexOf(kinds, spots[i].kind) >= 0 && rng.Next(++seen) == 0)
                 {
                     found = i;
                 }
@@ -729,17 +767,16 @@ namespace OdinsPaths
             }
 
             /// <summary>A chest, a spawner or a loose piece.</summary>
-            public bool Loose(string name, Vector3 at, float yaw, Anchor anchor)
+            public ZDO Loose(string name, Vector3 at, float yaw, Anchor anchor)
             {
                 GameObject prefab = Prefab(name);
                 if (prefab == null)
                 {
-                    return false;
+                    return null;
                 }
                 Quaternion turn = Quaternion.Euler(0f, yaw, 0f);
                 Box(prefab, at, turn, anchor, out Vector3 pivot, out Vector3 _, out Vector3 _);
-                Place(prefab, pivot, turn, Role.Clutter, prefab.GetComponent<CreatureSpawner>() == null);
-                return true;
+                return Place(prefab, pivot, turn, Role.Clutter, prefab.GetComponent<CreatureSpawner>() == null);
             }
 
             /// <summary>A sign reading the spot's kind, standing at it.</summary>
@@ -846,6 +883,33 @@ namespace OdinsPaths
 
         /// <summary>What <c>docks capture</c> turns back into a spot: a sign of the game's.</summary>
         public const string SignPrefab = "sign";
+
+        /// <summary>What a barrel spot holds the chest's loot in.</summary>
+        private const string BarrelPrefab = "piece_chest_barrel";
+
+        /// <summary>
+        /// A barrel given the loot of the treasure chest named, written into its ZDO as
+        /// <c>Container.Save</c> writes it, so it is there whoever loads it.
+        /// </summary>
+        private static bool Fill(ZDO zdo, string chest)
+        {
+            Container from = Prefab(chest)?.GetComponent<Container>();
+            Container store = ZNetScene.instance.GetPrefab(zdo.GetPrefab())?.GetComponent<Container>();
+            if (from == null || store == null)
+            {
+                return false;
+            }
+            Inventory inventory = new Inventory(store.m_name, store.m_bkg, store.m_width, store.m_height);
+            foreach (ItemDrop.ItemData item in from.m_defaultItems.GetDropListItems())
+            {
+                inventory.AddItem(item);
+            }
+            ZPackage package = new ZPackage();
+            inventory.Save(package);
+            zdo.Set(ZDOVars.s_items, package.GetArray());
+            zdo.Set(ZDOVars.s_addedDefaultItems, true);
+            return true;
+        }
 
         /// <summary>The treasure chest a biome's harbours may hold, as its own locations have it.</summary>
         public static string Chest(Heightmap.Biome biome)

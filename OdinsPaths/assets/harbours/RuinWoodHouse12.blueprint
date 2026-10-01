@@ -1,0 +1,22 @@
+#Name:RuinWoodHouse12
+#Creator:OdinsPaths
+#Description:"OdinsPaths harbour building, converted from the game's ruined house WoodHouse12: each piece's category is its role, a sign reading chest, enemy, deco or stone is a spot. The settings are in RuinWoodHouse12.json."
+#Category:OdinsPaths
+#Pieces
+wood_floor;floor;0;0;0;0;-0.7071;0;0.7071;"";1;1;1
+wood_door;door;0;-2.25;1;0;-1;0;0;"";1;1;1
+woodwall;wall;-1;-2.25;0;0;-0.7071;0;0.7071;"";1;1;1
+wood_roof_top;roof;0.027;0.46;0.03;0;-0.7071;0;0.7071;"";1;1;1
+woodwall;wall;1;-2.25;0;0;0.7071;0;0.7071;"";1;1;1
+woodwall;wall;0;-2.25;-1;0;-1;0;0;"";1;1;1
+wood_pole2;post;1;-2.5;1;0;-0.7071;0;0.7071;"";1;1;1
+wood_wall_roof_top;roof;0;0.5;1;0;-1;0;0;"";1;1;1
+wood_wall_roof_top;roof;0;0.5;-1;0;0;0;1;"";1;1;1
+wood_pole2;post;1;-0.5;1;0;-0.7071;0;0.7071;"";1;1;1
+wood_pole2;post;1;-2.5;-1;0;-0.7071;0;0.7071;"";1;1;1
+wood_pole2;post;1;-0.5;-1;0;-0.7071;0;0.7071;"";1;1;1
+wood_pole2;post;-1;-2.5;1;0;-0.7071;0;0.7071;"";1;1;1
+wood_pole2;post;-1;-0.5;1;0;-0.7071;0;0.7071;"";1;1;1
+wood_pole2;post;-1;-2.5;-1;0;-0.7071;0;0.7071;"";1;1;1
+wood_pole2;post;-1;-0.5;-1;0;-0.7071;0;0.7071;"";1;1;1
+sign;spot;0.03;0.375;-0.0724;0;0.6593;0;0.7518;"chest";1;1;1

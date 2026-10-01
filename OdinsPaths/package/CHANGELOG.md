@@ -16,6 +16,6 @@
   on ground levelled for it, so its door is never out of reach up a slope; where the shore is
   too steep for that, it is built onto the dock instead. The road runs onto the dock level with
   its planks. Years of weather have worn the docks and huts, some barely and some down to their piles. Some still hold fine furniture (which crumbles
-  to nothing if you break it), some a treasure chest, and some are haunted by a few of the land's
+  to nothing if you break it), some a treasure chest or a barrel full of loot, and some are haunted by a few of the land's
   enemies. `[Harbours] Docks`, `Buildings`, `ChestChance` and `EnemyChance` in the settings.
   Players need the mod to see the furniture.

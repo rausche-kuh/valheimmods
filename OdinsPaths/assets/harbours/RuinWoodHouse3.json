@@ -1,0 +1,11 @@
+{
+  "name": "RuinWoodHouse3",
+  "kind": "building",
+  "biomes": ["Meadows"],
+  "weight": 1,
+  "preSnow": false,
+  "roofReach": 3,
+  "deco": ["piece_table_round", "piece_chair03", "piece_throne01", "piece_bench01", "piece_brazierfloor01", "piece_bed02", "rug_wolf", "rug_deer", "piece_table"],
+  "clutter": [],
+  "clutterChance": 0
+}

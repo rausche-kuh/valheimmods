@@ -16,7 +16,7 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
 | `src/Relics.cs` | Furniture that drops nothing (below). |
 | `src/Dev/DockCommands.cs` | `docks list / reload / build / house / undo / capture / export / import`. |
 | `src/Dev/PlanBuildFiles.cs` | `docks export` into PlanBuild's folder, `docks import` of a PlanBuild capture: the fit. |
-| `assets/harbours/` | The shipped blueprints, the bare minimum to be replaced: `WoodJetty` (a dock, still in the old format below) and `WoodHut` (a building). A biome with none of its own builds as the Meadows do. |
+| `assets/harbours/` | The shipped blueprints, the bare minimum to be replaced: `WoodJetty` (a dock, still in the old format below) and the buildings `WoodHut`, `WoodTower` and `RuinWoodHouse3`, `11`, `12` (the game's ruined Meadows houses of those numbers, converted from the bundles and reworked). A biome with none of its own builds as the Meadows do. |
 
 ## Where things go
 
@@ -175,7 +175,7 @@ converts it.
 | `wall` | decay × 50% | |
 | `door` | decay × 50% | the lowest is where a building on its own is entered; a captured piece with the game's `Door` is guessed one |
 | `roof` | decay × 60%, and whenever no wall or post stands within `roofReach` | |
-| `post` | decay × 50% | |
+| `post` | decay × 50% | in a building, one standing at its bottom (no higher than its lowest floor, deck or pile) is a stilt: stacked on down as a pile. A building with no pile and no such post is never placed off the ground beside a dock |
 | `lamp` | with the post under it (within 0.6 m) | |
 | `deco` | decay × 40% | furniture built as placed, never swapped; a relic: drops nothing, refuses the hammer. Captured furniture (the hammer's Furniture tab) is guessed one |
 | `clutter`, `keep` | never | |
@@ -183,6 +183,8 @@ converts it.
 - **Spots** - the signs are the only thing ever replaced:
   - `chest`: the biome's treasure chest, at `ChestChance`; else on a standing deco spot, else a
     free deck.
+  - `barrel`: shares the `chest` roll; the loot goes to one chest or barrel spot at random, and
+    on a barrel spot it is a barrel with the chest's loot written into its ZDO (`Builder.Fill`).
   - `enemy`: one to three of the biome's one-shot spawners, at `EnemyChance`.
   - Furniture from `deco`, at 1 - decay × 40%, turned as its sign. `deco_h1`: standing, no
     higher than a wall; `deco_h2`: standing, no higher than two; both on the sign's foot.
@@ -204,7 +206,7 @@ Debug build, devcommands on, a creative/debug-mode player with the hammer:
    `docks house <name> edit` (at its lowest door, looking in): the blueprint as new, of the
    game's pieces placed as yours, so the hammer takes them down, a **sign** at each spot reading
    its kind. A new one: build it yourself, standing at its origin when you start.
-2. Rework it with the hammer. A spot is a sign reading `chest`, `enemy`, `deco_h1`, `deco_h2`,
+2. Rework it with the hammer. A spot is a sign reading `chest`, `barrel`, `enemy`, `deco_h1`, `deco_h2`,
    `deco_wall`, `deco_hanging`, `stone` or `dock`. Give a building one door at the ground (the
    lowest counts), and a `dock` sign only to one that is built onto a dock.
    Piles only need to reach a little below the deck; the rest is added where it is raised.

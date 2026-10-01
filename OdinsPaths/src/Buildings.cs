@@ -63,6 +63,8 @@ namespace OdinsPaths
         private const float SteepRise = 2.5f;
         /// <summary>How many blueprints one's fallbacks lead on to at most.</summary>
         private const int MaxFallbacks = 3;
+        /// <summary>How far over the ground a floor may stand beside the dock when nothing carries it down.</summary>
+        private const float Stiltless = 0.5f;
         /// <summary>How far above the water its ground has to be everywhere.</summary>
         private const float Dry = 1f;
         /// <summary>A structure this close to its footprint keeps it away.</summary>
@@ -289,7 +291,7 @@ namespace OdinsPaths
             {
                 return null;
             }
-            bool piles = parts.Exists(part => part.Role == Role.Pile);
+            bool piles = Builder.HasStilts(parts);
             float edge = trail.Kind.Reach;
             Builder.Frame best = default;
             Vector2 bestRoad = Vector2.zero;
@@ -508,7 +510,8 @@ namespace OdinsPaths
 
         /// <summary>
         /// Whether a building beside the dock stands there: none of it on the dock's deck, its
-        /// floors neither under the ground nor over water deeper than a dock may stand in, clear of
+        /// floors neither under the ground nor over water deeper than a dock may stand in - nor off
+        /// the ground at all without stilts (<see cref="Builder.HasStilts"/>) -, clear of
         /// structures and door paths, and on land off the road and out of locations.
         /// </summary>
         private static bool BesideDock(Trail trail, List<Builder.Part> parts, Builder.Frame frame, Builder.Result dock, Structures structures,
@@ -516,6 +519,8 @@ namespace OdinsPaths
         {
             float water = ZoneSystem.instance.m_waterLevel;
             int near = NearestPoint(trail, frame.Origin);
+            // Without stilts to carry it down, a building stands only where its floors are on the ground.
+            float deepest = Builder.HasStilts(parts) ? Docks.MaxDepth : Stiltless;
             foreach (Builder.Part part in parts)
             {
                 if (!part.Solid)
@@ -532,7 +537,7 @@ namespace OdinsPaths
                     }
                 }
                 float ground = OdinsPaths.Ground.Height(at.x, at.y);
-                if (part.Stands && (ground > frame.Height(part.Max.y) + Builder.Buried || frame.Height(part.Max.y) - ground > Docks.MaxDepth))
+                if (part.Stands && (ground > frame.Height(part.Max.y) + Builder.Buried || frame.Height(part.Max.y) - ground > deepest))
                 {
                     return false;
                 }
