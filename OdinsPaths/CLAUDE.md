@@ -54,7 +54,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `src/Json.cs` | A small JSON reader for the blueprints (`JsonUtility` left their lists empty). |
 | `src/Builder.cs` | Raises a blueprint: weathering, piles to the ground, spots, chests, spawners. |
 | `src/Docks.cs` | A harbour's dock: flush with the road, fitted to the shore. |
-| `src/Buildings.cs` | Old buildings beside a harbour's road. |
+| `src/Buildings.cs` | Old buildings at a harbour: by their door off the road, with a path to it, or joined to the dock. |
 | `src/Relics.cs` | The furniture: game pieces copied to recover nothing, refuse the hammer. |
 | `src/Clearing.cs` | Removes trees, rocks and scenery from a path; the `SpawnZone` patch. |
 | `src/PathLayer.cs` | One road: search passes → trail → write → clear → landings; `LaySpurs`. |

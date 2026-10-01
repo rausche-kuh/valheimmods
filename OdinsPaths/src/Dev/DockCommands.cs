@@ -12,7 +12,7 @@ namespace OdinsPaths
             + "house [blueprint] [condition 0-1] [chest] [enemies] [edit] | undo | capture <name> [dock|building] [radius] | "
             + "export [name] | import <PlanBuild file> [as <name>] [dock|building]   "
             + "(build: a dock from where you stand out along where you look, you standing where the road ends; house: a building "
-            + "with its front where you stand, looking in; edit: as new, of pieces the hammer takes, signs at the spots; "
+            + "with its lowest door where you stand, looking in; edit: as new, of pieces the hammer takes, signs at the spots; "
             + "capture: what was built around you into BepInEx/config/OdinsPaths/harbours/<name>.blueprint and .json; "
             + "export: every blueprint, or one, rewritten there and copied to PlanBuild's folder; "
             + "import: a PlanBuild capture of a placed blueprint, fitted back into its frame)";
@@ -106,6 +106,7 @@ namespace OdinsPaths
             Vector2 forward = new Vector2(look.x, look.z);
             long creator = edit ? player.GetPlayerID() : 0L;
             Builder.Result result;
+            Builder.Frame frame = Builder.Frame.Make(origin, forward, feet.y);
             if (house)
             {
                 Blueprint blueprint = name != null ? Blueprints.Named(name)
@@ -121,7 +122,7 @@ namespace OdinsPaths
                     EnemyChance = enemies ? 1f : 0f,
                     Edit = edit,
                     Creator = creator,
-                }, Random.Range(int.MinValue, int.MaxValue));
+                }, Random.Range(int.MinValue, int.MaxValue), out frame);
             }
             else
             {
@@ -146,7 +147,7 @@ namespace OdinsPaths
             }
             if (edit && result.Reason == null)
             {
-                editFrame = Builder.Frame.Make(origin, forward, feet.y);
+                editFrame = frame;
                 editName = result.Name;
                 return (house ? "House: " : "Dock: ") + result + ". Rework it with the hammer, then 'docks capture " + result.Name
                     + "' within " + EditReach + " m of here.";
@@ -180,7 +181,7 @@ namespace OdinsPaths
         /// The pieces around the player - built by a player, or by an edit build and still
         /// standing - as a blueprint: in the last edit build's frame when the player is near it,
         /// else from the player's feet (on the deck at the land end, or on the floor at the
-        /// front) the way the player looks. Signs reading chest, enemy, deco or stone are spots.
+        /// front) the way the player looks. A sign reading a spot's kind (Spots) is that spot.
         /// A blueprint of the same name keeps its settings (biomes, deco list, clutter...).
         /// </summary>
         private static string Capture(Terminal.ConsoleEventArgs args)
@@ -223,7 +224,6 @@ namespace OdinsPaths
                 from = "your feet and view";
             }
             Quaternion inverse = Quaternion.Inverse(frame.Rotation);
-            Vector3 origin = new Vector3(frame.Origin.x, frame.Floor, frame.Origin.y);
 
             Blueprint old = Blueprints.Named(name);
             Blueprint blueprint = new Blueprint
@@ -256,12 +256,12 @@ namespace OdinsPaths
                 {
                     continue;
                 }
-                Vector3 local = inverse * (at - origin);
+                Vector3 local = frame.Local(at);
                 Quaternion rotation = inverse * zdo.GetRotation();
                 if (prefab.GetComponent<Sign>() != null)
                 {
-                    string text = zdo.GetString(ZDOVars.s_text, "").Trim().ToLowerInvariant();
-                    if (Blueprints.IsSpot(text))
+                    string text = Spots.Normal(zdo.GetString(ZDOVars.s_text, ""));
+                    if (Spots.Is(text))
                     {
                         // A spot stands on the deck: the sign's foot.
                         Bounds shape = Builder.Shape(prefab);
@@ -289,7 +289,7 @@ namespace OdinsPaths
             Relics.Register();
             return blueprint.pieces.Count + " pieces and " + blueprint.spots.Count + " spots, in " + from + ", written to " + path
                 + (copy != null ? " and " + copy : "")
-                + ". Check the guessed roles (pile below the deck, deck, floor, wall, roof, post, lamp, deco, clutter, keep); "
+                + ". Check the guessed roles (pile below the deck, deck, floor, wall, door, roof, post, lamp, deco, clutter, keep); "
                 + "it is in use now.";
         }
 

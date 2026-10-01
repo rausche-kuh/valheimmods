@@ -86,6 +86,18 @@ sorted on the worker (`Structures.Gather`), the prefab kinds built once per scen
 ellipse is tried by its bounding circle before its two distances, and the spurs take the
 buildings in their corridor, which is all their search and their writing touch.
 
+**And the locations** (2026-10-01, a `paths grow all`: every road's slowest frame, 127 to 182 ms,
+fell in "Looking at what stands in the way"). The locations to keep out of were still sorted on the
+main thread: every instance of the world against each goal's reach and every start. Now a circle
+per instance is read once per world (`PathLayer.EveryLocation`) and sorted on the worker, and the
+array the ZDOs are copied into is kept from road to road instead of a new one of megabytes each
+time. The frame watch counts garbage collections too, to tell what stutter is left.
+
+The next full growth (21 roads in 128 s) had no hitch with a collection; the slowest frames left
+were on roads with sea crossings, every harbour built in the frame after the clearing and so put
+down to it. The harbours are now built one a frame (`Harbours.Place`), with stages of their own
+for the harbours, the paths to their buildings and the lamps.
+
 **And it ends at every candidate** (built 2026-09-25). The goals are a list too - every altar of
 one boss, say - with the distance to the nearest as the heuristic, and the search stops at the
 first one it settles, which is the one cheapest to reach from the network (PLAN.md's

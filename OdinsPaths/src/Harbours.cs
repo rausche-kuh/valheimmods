@@ -1,4 +1,5 @@
 using HarmonyLib;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -198,33 +199,36 @@ namespace OdinsPaths
         /// both ways; a landing near a harbour already there joins it. A road that forks off an
         /// older one out at sea (fork: where it sets out) has no shore behind it: its first
         /// harbour is linked to the shores of the older road's crossing instead
-        /// (<see cref="ForkHarbours"/>). The stones placed, as ZDOs. Server only.
+        /// (<see cref="ForkHarbours"/>). The stones placed are added to placed, as ZDOs. One
+        /// harbour a frame: its dock and buildings are hundreds of objects. Server only.
         /// </summary>
-        public static List<ZDOID> Place(Trail trail, List<Landings.Landing> landings, Structures structures, Vector2? fork)
+        public static IEnumerator Place(Trail trail, List<Landings.Landing> landings, Structures structures, Vector2? fork,
+            List<Buildings.DoorPath> doorPaths, List<ZDOID> placed)
         {
-            List<ZDOID> placed = new List<ZDOID>();
             if (landings.Count == 0)
             {
-                return placed;
+                yield break;
             }
             GameObject stone = ZNetScene.instance.GetPrefab(Hash);
             if (stone == null)
             {
                 Debug.LogWarning("[OdinsPaths] No harbour stone prefab - landings left unmarked.");
-                return placed;
+                yield break;
             }
             List<ZDO> stones = Stones();
             List<ZDO> touched = new List<ZDO>();
             for (int i = 0; i < landings.Count; i++)
             {
-                ZDO here = Harbour(trail, landings[i], stone, stones, structures, placed);
+                ZDO here = Harbour(trail, landings[i], stone, stones, structures, placed, doorPaths);
                 touched.Add(here);
+                yield return null;
                 // The shore across is the next landing of the same crossing; a trail that ends
                 // or starts in the water has a crossing with one shore.
                 if (i + 1 < landings.Count && landings[i + 1].Crossing == landings[i].Crossing)
                 {
-                    ZDO there = Harbour(trail, landings[i + 1], stone, stones, structures, placed);
+                    ZDO there = Harbour(trail, landings[i + 1], stone, stones, structures, placed, doorPaths);
                     touched.Add(there);
+                    yield return null;
                     Link(here, there);
                     Link(there, here);
                     i++;
@@ -238,7 +242,6 @@ namespace OdinsPaths
             {
                 Colour(zdo, stones);
             }
-            return placed;
         }
 
         /// <summary>Whether the trail starts in the water: its first landing is a shore it comes to, with none it left from.</summary>
@@ -376,7 +379,8 @@ namespace OdinsPaths
         }
 
         /// <summary>The harbour a landing belongs to: the stone within <see cref="Merge"/>, or a new one on its shore.</summary>
-        private static ZDO Harbour(Trail trail, Landings.Landing landing, GameObject stone, List<ZDO> stones, Structures structures, List<ZDOID> placed)
+        private static ZDO Harbour(Trail trail, Landings.Landing landing, GameObject stone, List<ZDO> stones, Structures structures, List<ZDOID> placed,
+            List<Buildings.DoorPath> doorPaths)
         {
             Vector2 shore = trail.Points[landing.Shore];
             ZDO nearest = null;
@@ -405,7 +409,7 @@ namespace OdinsPaths
                 placed.Add(atPier.m_uid);
                 structures.Add(new Vector2(at.x, at.z));
                 Debug.Log("[OdinsPaths] Harbour at the pier of " + port + ".");
-                placed.AddRange(Buildings.ForHarbour(trail, landing, Ports.LandEndAlong(port, trail, landing), structures, seed + 1));
+                placed.AddRange(Buildings.ForHarbour(trail, landing, Ports.LandEndAlong(port, trail, landing), null, structures, seed + 1, doorPaths));
                 return atPier;
             }
             // The dock first: the stone may stand on it.
@@ -426,7 +430,7 @@ namespace OdinsPaths
             stones.Add(spawned);
             placed.Add(spawned.m_uid);
             structures.Add(new Vector2(position.x, position.z));
-            placed.AddRange(Buildings.ForHarbour(trail, landing, dock.LandEnd, structures, seed + 1));
+            placed.AddRange(Buildings.ForHarbour(trail, landing, dock.LandEnd, dock.Built, structures, seed + 1, doorPaths));
             return spawned;
         }
 

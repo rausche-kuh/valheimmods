@@ -62,6 +62,10 @@ namespace OdinsPaths
         private static float worstFrame;
         private static string worstStage = "";
         private static int hitches;
+        /// <summary>Garbage collections during the job, and how many of the hitches had one.</summary>
+        private static int collections;
+        private static int hitchesCollected;
+        private static int collectionsSeen;
 
         private static GUIStyle label;
         private static Texture2D back;
@@ -94,6 +98,9 @@ namespace OdinsPaths
             worstFrame = 0f;
             worstStage = "";
             hitches = 0;
+            collections = 0;
+            hitchesCollected = 0;
+            collectionsSeen = GC.CollectionCount(0);
             Stage("", 0f, 0f);
         }
 
@@ -123,7 +130,8 @@ namespace OdinsPaths
         {
             return "slowest frame " + (worstFrame * 1000f).ToString("F0") + " ms"
                 + (worstStage.Length > 0 ? " (" + worstStage + ")" : "") + ", " + hitches + " over "
-                + (HitchSeconds * 1000f).ToString("F0") + " ms";
+                + (HitchSeconds * 1000f).ToString("F0") + " ms (" + hitchesCollected + " with a garbage collection), "
+                + collections + " collections";
         }
 
         /// <summary>A line in every player's message log, if the settings allow.</summary>
@@ -158,9 +166,14 @@ namespace OdinsPaths
                 return;
             }
             float dt = Time.unscaledDeltaTime;
+            int seen = GC.CollectionCount(0);
+            bool collected = seen != collectionsSeen;
+            collections += seen - collectionsSeen;
+            collectionsSeen = seen;
             if (dt > HitchSeconds)
             {
                 hitches++;
+                hitchesCollected += collected ? 1 : 0;
             }
             if (dt > worstFrame)
             {

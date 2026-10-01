@@ -19,13 +19,18 @@ namespace OdinsPaths
         /// <summary>Below the deck or floor: always stays, and the lowest of each column is carried on down to the ground.</summary>
         Pile,
         Wall,
+        /// <summary>
+        /// A building's way in, weathered like a wall: the lowest one is where the building meets
+        /// the ground, the point it is placed by (<see cref="Builder.Entry"/>).
+        /// </summary>
+        Door,
         /// <summary>Goes at times, and always when no wall is left standing within the blueprint's roofReach.</summary>
         Roof,
         /// <summary>A mooring post, a railing post: goes at times, with the lamp on it.</summary>
         Post,
         /// <summary>A lamp on a post: goes with its post.</summary>
         Lamp,
-        /// <summary>Furniture: a relic copy that drops nothing (<see cref="Relics"/>).</summary>
+        /// <summary>Furniture, built as placed: a relic copy that drops nothing (<see cref="Relics"/>).</summary>
         Deco,
         /// <summary>Loose things lying about: never weathered away, they are the weathering.</summary>
         Clutter,
@@ -69,7 +74,7 @@ namespace OdinsPaths
         public bool preSnow;
         /// <summary>How far, in metres, a roof piece may be from a standing wall and still hold (0: 3 m).</summary>
         public float roofReach;
-        /// <summary>The furniture a "deco" spot picks from.</summary>
+        /// <summary>The furniture the deco spots pick from, each spot what fits it (<see cref="Builder.FitsSpot"/>).</summary>
         public string[] deco;
         /// <summary>Loose pieces some deck pieces get, clutterChance each.</summary>
         public string[] clutter;
@@ -82,6 +87,8 @@ namespace OdinsPaths
         [NonSerialized] internal bool Legacy;
         [NonSerialized] internal bool IsDock;
         [NonSerialized] internal Heightmap.Biome Biomes;
+        /// <summary>A building's "dock" spot: where it joins a dock's deck; null for one that stands on its own.</summary>
+        [NonSerialized] internal BlueprintSpot Joint;
 
         internal float RoofReach => roofReach > 0f ? roofReach : 3f;
         internal float Weight => weight > 0f ? weight : 1f;
@@ -114,8 +121,10 @@ namespace OdinsPaths
     }
 
     /// <summary>
-    /// A place something may go: "chest", "enemy", "deco" (furniture from the deco list), or
-    /// "stone" (a dock's harbour stone). In a .blueprint a sign reading its kind, pos its foot.
+    /// A place something may go (<see cref="Spots"/>): "chest", "enemy", furniture from the deco
+    /// list - "deco_wall" on a wall, "deco_hanging" from a ceiling, "deco_h1" standing no higher
+    /// than a wall, "deco_h2" than two -, "stone" (a dock's harbour stone), or "dock" (where a
+    /// building joins a dock). In a .blueprint a sign reading its kind, pos its foot, yaw its turn.
     /// </summary>
     [Serializable]
     public sealed class BlueprintSpot
@@ -125,6 +134,43 @@ namespace OdinsPaths
         public float yaw;
 
         [NonSerialized] internal Vector3 Position;
+    }
+
+    /// <summary>The kinds of spot, as the signs read them. Only a spot is ever replaced; every piece is built as placed.</summary>
+    internal static class Spots
+    {
+        public const string Chest = "chest";
+        public const string Enemy = "enemy";
+        public const string Stone = "stone";
+        public const string Dock = "dock";
+        public const string Wall = "deco_wall";
+        public const string Hanging = "deco_hanging";
+        /// <summary>Standing furniture no higher than a wall.</summary>
+        public const string Low = "deco_h1";
+        /// <summary>Standing furniture no higher than two walls.</summary>
+        public const string High = "deco_h2";
+        /// <summary>What the furniture spots were before they had kinds: standing, a wall high.</summary>
+        private const string Old = "deco";
+
+        public const string Names = "chest, enemy, stone, dock, deco_wall, deco_hanging, deco_h1 or deco_h2";
+
+        /// <summary>A sign's text as a spot's kind: trimmed, lower case, the old "deco" as deco_h1.</summary>
+        public static string Normal(string text)
+        {
+            text = (text ?? "").Trim().ToLowerInvariant();
+            return text == Old ? Low : text;
+        }
+
+        public static bool Is(string text)
+        {
+            text = Normal(text);
+            return text == Chest || text == Enemy || text == Stone || text == Dock || IsDeco(text);
+        }
+
+        public static bool IsDeco(string kind) => kind == Wall || kind == Hanging || IsStanding(kind);
+
+        /// <summary>Furniture standing on the floor, where a chest may go too.</summary>
+        public static bool IsStanding(string kind) => kind == Low || kind == High;
     }
 
     internal static class Blueprints
@@ -255,11 +301,12 @@ namespace OdinsPaths
                 {
                     continue;
                 }
-                spot.kind = (spot.kind ?? "").Trim().ToLowerInvariant();
+                spot.kind = Spots.Normal(spot.kind);
                 spot.Position = new Vector3(spot.pos[0], spot.pos[1], spot.pos[2]);
                 spots.Add(spot);
             }
             blueprint.spots = spots;
+            blueprint.Joint = blueprint.IsDock ? null : spots.Find(s => s.kind == Spots.Dock);
             if (pieces.Count == 0)
             {
                 Debug.LogWarning("[OdinsPaths] Harbour blueprint " + blueprint.name + " has no pieces - left out.");
@@ -495,8 +542,9 @@ namespace OdinsPaths
             foreach (PlanPiece p in plan)
             {
                 string text = p.Info.Trim().ToLowerInvariant();
-                if (p.Prefab == Builder.SignPrefab && IsSpot(text))
+                if (p.Prefab == Builder.SignPrefab && Spots.Is(text))
                 {
+                    text = Spots.Normal(text);
                     float yaw = Mathf.Round(p.Rotation.eulerAngles.y * 10f) / 10f % 360f;
                     Vector3 foot = p.Position + Quaternion.Euler(0f, yaw, 0f) * SignBase();
                     blueprint.spots.Add(new BlueprintSpot { kind = text, pos = Rounded(foot), yaw = yaw });
@@ -522,7 +570,7 @@ namespace OdinsPaths
                 "#Name:" + blueprint.name,
                 "#Creator:OdinsPaths",
                 "#Description:" + Quote("OdinsPaths harbour " + (blueprint.IsDock ? "dock" : "building") + ": each piece's category is its role, "
-                    + "a sign reading chest, enemy, deco or stone is a spot. The settings are in " + blueprint.name + ".json."),
+                    + "a sign reading " + Spots.Names + " is a spot. The settings are in " + blueprint.name + ".json."),
                 "#Category:OdinsPaths",
                 "#Pieces",
             };
@@ -580,14 +628,12 @@ namespace OdinsPaths
 
         private static string P(float value) => value.ToString("0.######", CultureInfo.InvariantCulture);
 
-        internal static bool IsSpot(string text) => text == "chest" || text == "enemy" || text == "deco" || text == "stone";
-
         private static bool IsRole(string text) => text.Length > 0 && !char.IsDigit(text[0]) && Enum.TryParse(text, true, out Role _);
 
         private static bool signWarned;
 
         /// <summary>From a sign's pivot to its foot, which is the spot: the bottom face's centre of its measured box.</summary>
-        private static Vector3 SignBase()
+        internal static Vector3 SignBase()
         {
             GameObject sign = ZNetScene.instance != null ? Builder.Prefab(Builder.SignPrefab) : null;
             if (sign == null)
@@ -610,27 +656,42 @@ namespace OdinsPaths
             return new[] { Mathf.Round(v.x * 1000f) / 1000f, Mathf.Round(v.y * 1000f) / 1000f, Mathf.Round(v.z * 1000f) / 1000f };
         }
 
-        /// <summary>A role from a piece's name and height, for a piece nobody gave one: what stands below the deck or floor is a pile.</summary>
+        /// <summary>
+        /// A role for a piece nobody gave one, from what the game's prefab is when it is loaded
+        /// (a door, furniture) and else from its name and height: what stands below the deck or
+        /// floor is a pile, anything that is no building part furniture.
+        /// </summary>
         internal static string Guess(string name, float y, bool dock)
         {
             string lower = name.ToLowerInvariant();
+            GameObject prefab = ZNetScene.instance != null ? ZNetScene.instance.GetPrefab(name) : null;
+            if ((prefab != null && prefab.GetComponent<Door>() != null) || lower.Contains("door") || lower.Contains("gate"))
+            {
+                return "door";
+            }
             bool upright = lower.Contains("pole") || lower.Contains("pillar") || lower.Contains("log") || lower.Contains("post")
                 || lower.Contains("beam") || lower.Contains("block");
             if (upright && y < -0.2f)
             {
                 return "pile";
             }
+            if (lower.Contains("lantern") || lower.Contains("demister") || lower.Contains("torch") || lower.Contains("lamp"))
+            {
+                return "lamp";
+            }
+            // A log bench is furniture, not a post.
+            Piece piece = prefab != null ? prefab.GetComponent<Piece>() : null;
+            if (piece != null && piece.m_category == Piece.PieceCategory.Furniture)
+            {
+                return "deco";
+            }
             if (lower.Contains("roof"))
             {
                 return "roof";
             }
-            if (lower.Contains("wall") || lower.Contains("window") || lower.Contains("door") || lower.Contains("gate"))
+            if (lower.Contains("wall") || lower.Contains("window"))
             {
                 return "wall";
-            }
-            if (lower.Contains("lantern") || lower.Contains("demister") || lower.Contains("torch") || lower.Contains("lamp"))
-            {
-                return "lamp";
             }
             if (upright && !lower.Contains("beam"))
             {

@@ -27,9 +27,15 @@ namespace OdinsPaths
         /// <summary>A deck piece this close to something standing on it (a post, furniture, a spot) stays.</summary>
         private const float Holds = 1.2f;
         /// <summary>Near the land end a dock's deck always stays: it is where the road runs on.</summary>
-        private const float LandEndKept = 2f;
+        internal const float LandEndKept = 2f;
         /// <summary>A lamp this close above a post stands on it, and goes with it.</summary>
         private const float OnPost = 0.6f;
+        /// <summary>How high a wall stands: a deco_h1 spot takes furniture up to this high, a deco_h2 up to twice it.</summary>
+        private const float WallHeight = 2f;
+        /// <summary>Furniture's widest across, and a rug's (anything flatter than <see cref="RugHeight"/>).</summary>
+        private const float MaxWidth = 2.3f;
+        private const float MaxRugWidth = 3.2f;
+        private const float RugHeight = 0.2f;
 
         /// <summary>A piece's role as <see cref="Role"/>'s name, so <c>docks capture</c> reads back what was built.</summary>
         internal static readonly int RoleKey = "OdinsPaths_Role".GetStableHashCode();
@@ -38,15 +44,25 @@ namespace OdinsPaths
         /// <summary>Part of a harbour building: a zone generated later has its trees taken off it (<see cref="Clearing"/>).</summary>
         internal static readonly int BuildingKey = "OdinsPaths_Building".GetStableHashCode();
 
-        /// <summary>Where a blueprint's frame lies in the world.</summary>
+        /// <summary>
+        /// Where a blueprint's frame lies in the world: its <see cref="Anchor"/> at the origin, on
+        /// the floor height given, and the blueprint's <see cref="Inward"/> along forward. A dock's
+        /// anchor is the frame's own origin, z its forward; a building's its door's foot, the way
+        /// in through it (<see cref="Entered"/>), or a dock spot's foot, the way onto the dock.
+        /// </summary>
         internal struct Frame
         {
             public Vector2 Origin;
             public Vector2 Right;
             public Vector2 Forward;
-            /// <summary>The height of the frame's y 0: a dock's deck top at the land end, a building's floor top.</summary>
+            /// <summary>The world height of the anchor: a dock's deck top at the land end, a building's door foot.</summary>
             public float Floor;
+            /// <summary>From the blueprint's frame to the world's.</summary>
             public Quaternion Rotation;
+            /// <summary>The blueprint's point at the origin.</summary>
+            public Vector3 Anchor;
+            /// <summary>Turns the blueprint's frame so its inward direction is z.</summary>
+            private Quaternion inner;
 
             public static Frame Make(Vector2 origin, Vector2 forward, float floor)
             {
@@ -58,15 +74,41 @@ namespace OdinsPaths
                     Right = new Vector2(forward.y, -forward.x),
                     Floor = floor,
                     Rotation = Quaternion.LookRotation(new Vector3(forward.x, 0f, forward.y)),
+                    inner = Quaternion.identity,
                 };
             }
 
-            public Vector2 Flat(float x, float z) => Origin + Right * x + Forward * z;
+            /// <summary>This frame with the blueprint's point anchor at its origin and the blueprint's direction inward along its forward.</summary>
+            public Frame Entered(Vector3 anchor, Vector2 inward)
+            {
+                Frame frame = this;
+                frame.Anchor = anchor;
+                frame.inner = Quaternion.Inverse(Quaternion.LookRotation(new Vector3(inward.x, 0f, inward.y)));
+                frame.Rotation = Quaternion.LookRotation(new Vector3(Forward.x, 0f, Forward.y)) * frame.inner;
+                return frame;
+            }
+
+            public Vector2 Flat(float x, float z)
+            {
+                Vector3 v = inner * new Vector3(x - Anchor.x, 0f, z - Anchor.z);
+                return Origin + Right * v.x + Forward * v.z;
+            }
+
+            /// <summary>The world height of a height in the blueprint.</summary>
+            public float Height(float y) => Floor + y - Anchor.y;
 
             public Vector3 World(Vector3 local)
             {
                 Vector2 flat = Flat(local.x, local.z);
-                return new Vector3(flat.x, Floor + local.y, flat.y);
+                return new Vector3(flat.x, Height(local.y), flat.y);
+            }
+
+            /// <summary>A world point in the blueprint's frame.</summary>
+            public Vector3 Local(Vector3 world)
+            {
+                Vector2 d = new Vector2(world.x, world.z) - Origin;
+                Vector3 v = Quaternion.Inverse(inner) * new Vector3(Vector2.Dot(d, Right), 0f, Vector2.Dot(d, Forward));
+                return new Vector3(v.x + Anchor.x, world.y - Floor + Anchor.y, v.z + Anchor.z);
             }
         }
 
@@ -106,6 +148,9 @@ namespace OdinsPaths
             public readonly List<Vector2> Footprint = new List<Vector2>();
             /// <summary>Why nothing was built, when nothing was.</summary>
             public string Reason;
+            /// <summary>The frame it was built in, and the boxes of its decks and floors still there in it: where a building may join a dock.</summary>
+            public Frame Frame;
+            public readonly List<Bounds> Decks = new List<Bounds>();
 
             public override string ToString()
             {
@@ -130,6 +175,70 @@ namespace OdinsPaths
             public Role Role => Piece.Role;
             public Vector2 Centre => new Vector2((Min.x + Max.x) * 0.5f, (Min.z + Max.z) * 0.5f);
             public bool Stands => Role == Role.Deck || Role == Role.Floor;
+            /// <summary>What a building stands on and is closed by: its footprint.</summary>
+            public bool Solid => Stands || Role == Role.Wall || Role == Role.Door || Role == Role.Pile;
+        }
+
+        /// <summary>
+        /// Where a building is entered from the ground: its lowest door's foot (the middle of its
+        /// box's bottom), and the way in through it - across the door, toward the middle of the
+        /// floors. False for a building without a door.
+        /// </summary>
+        public static bool Entry(List<Part> parts, out Vector3 foot, out Vector2 inward)
+        {
+            foot = Vector3.zero;
+            inward = Vector2.up;
+            Part door = null;
+            foreach (Part part in parts)
+            {
+                if (part.Role == Role.Door && (door == null || part.Min.y < door.Min.y))
+                {
+                    door = part;
+                }
+            }
+            if (door == null)
+            {
+                return false;
+            }
+            foot = new Vector3(door.Centre.x, door.Min.y, door.Centre.y);
+            // Across the door: the thinner of its own two level axes, as it is turned.
+            Bounds shape = Shape(door.Prefab);
+            Vector3 across = door.Piece.Rotation * (shape.size.x < shape.size.z ? Vector3.right : Vector3.forward);
+            inward = new Vector2(across.x, across.z);
+            if (inward.sqrMagnitude < 0.01f)
+            {
+                inward = Vector2.up;
+            }
+            inward.Normalize();
+            if (Vector2.Dot(Middle(parts) - door.Centre, inward) < 0f)
+            {
+                inward = -inward;
+            }
+            return true;
+        }
+
+        /// <summary>The middle of a blueprint's floors, or of all its pieces if it has none.</summary>
+        public static Vector2 Middle(List<Part> parts)
+        {
+            Vector2 sum = Vector2.zero;
+            int count = 0;
+            foreach (Part part in parts)
+            {
+                if (part.Stands)
+                {
+                    sum += part.Centre;
+                    count++;
+                }
+            }
+            if (count == 0)
+            {
+                foreach (Part part in parts)
+                {
+                    sum += part.Centre;
+                    count++;
+                }
+            }
+            return count > 0 ? sum / count : Vector2.zero;
         }
 
         /// <summary>The blueprint's pieces with their prefabs and measured boxes; a piece whose prefab the game lacks is left out.</summary>
@@ -180,13 +289,14 @@ namespace OdinsPaths
                 return false;
             }
             Vector2 at = frame.Flat(part.Centre.x, part.Centre.y);
-            return Ground.Height(at.x, at.y) > frame.Floor + part.Max.y + Buried;
+            return Ground.Height(at.x, at.y) > frame.Height(part.Max.y) + Buried;
         }
 
         /// <summary>Weathers the parts, then writes every piece, pile, relic, chest, spawner and loose piece that is left.</summary>
         public static void Raise(Blueprint blueprint, List<Part> parts, Frame frame, Options options, System.Random rng, Result result)
         {
             result.Name = blueprint.name;
+            result.Frame = frame;
             float condition = options.Edit ? 1f
                 : float.IsNaN(options.Condition) ? Mathf.Lerp(0.05f, 0.95f, (float)rng.NextDouble()) : Mathf.Clamp01(options.Condition);
             result.Condition = condition;
@@ -198,7 +308,7 @@ namespace OdinsPaths
             {
                 Part part = parts[i];
                 Vector2 at = frame.Flat(part.Centre.x, part.Centre.y);
-                gone[i] = IsBuried(part, frame, options.Dock) || (part.Role == Role.Pile && frame.Floor + part.Max.y < Ground.Height(at.x, at.y));
+                gone[i] = IsBuried(part, frame, options.Dock) || (part.Role == Role.Pile && frame.Height(part.Max.y) < Ground.Height(at.x, at.y));
             }
             if (!options.Edit)
             {
@@ -218,7 +328,12 @@ namespace OdinsPaths
             List<BlueprintSpot> spots = new List<BlueprintSpot>();
             foreach (BlueprintSpot spot in blueprint.spots)
             {
-                if (spot.kind == "stone")
+                if (spot.kind == Spots.Dock)
+                {
+                    // Where it was joined to the dock: nothing goes there.
+                    continue;
+                }
+                if (spot.kind == Spots.Stone)
                 {
                     if (!result.HasStone)
                     {
@@ -227,7 +342,7 @@ namespace OdinsPaths
                         result.StoneRotation = frame.Rotation * Quaternion.Euler(0f, spot.yaw, 0f);
                     }
                 }
-                else if (Standing(parts, gone, frame, spot.Position))
+                else if (Held(parts, gone, frame, spot))
                 {
                     spots.Add(spot);
                 }
@@ -247,9 +362,15 @@ namespace OdinsPaths
 
             for (int i = 0; i < parts.Count; i++)
             {
-                if (!gone[i] && (parts[i].Stands || parts[i].Role == Role.Wall || parts[i].Role == Role.Pile))
+                if (!gone[i] && parts[i].Solid)
                 {
                     result.Footprint.Add(frame.Flat(parts[i].Centre.x, parts[i].Centre.y));
+                }
+                if (!gone[i] && parts[i].Stands)
+                {
+                    Bounds box = new Bounds();
+                    box.SetMinMax(parts[i].Min, parts[i].Max);
+                    result.Decks.Add(box);
                 }
             }
         }
@@ -287,7 +408,8 @@ namespace OdinsPaths
                     case Role.Deck:
                         chance = (dock && part.Min.z < LandEndKept) || Near(held, part.Centre, Holds) ? 0.0 : decay * 0.35;
                         break;
-                    case Role.Wall: chance = decay * 0.5; break;
+                    case Role.Wall:
+                    case Role.Door: chance = decay * 0.5; break;
                     case Role.Roof: chance = decay * 0.6; break;
                     case Role.Post: chance = decay * 0.5; break;
                     case Role.Deco: chance = decay * 0.4; break;
@@ -367,7 +489,7 @@ namespace OdinsPaths
                 float ground = Ground.Height(at.x, at.y);
                 float height = Mathf.Max(0.5f, pile.Max.y - pile.Min.y);
                 float bottom = pile.Min.y;
-                for (int k = 1; k <= MaxPileStack && frame.Floor + bottom > ground - 0.3f; k++)
+                for (int k = 1; k <= MaxPileStack && frame.Height(bottom) > ground - 0.3f; k++)
                 {
                     placer.Extension(pile, height * k);
                     bottom -= height;
@@ -375,11 +497,44 @@ namespace OdinsPaths
             }
         }
 
+        /// <summary>
+        /// Whether what a spot needs is still there: for furniture on a wall or from a ceiling,
+        /// the piece its sign was fixed to (a building part around its pivot); for anything else
+        /// a deck or floor under it, or the ground.
+        /// </summary>
+        private static bool Held(List<Part> parts, bool[] gone, Frame frame, BlueprintSpot spot)
+        {
+            if (spot.kind == Spots.Wall || spot.kind == Spots.Hanging)
+            {
+                Vector3 pivot = SignPivot(spot);
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    Part part = parts[i];
+                    if (!gone[i] && part.Role != Role.Deco && part.Role != Role.Clutter && part.Role != Role.Lamp
+                        && Inside(pivot, part.Min, part.Max, 0.3f))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            return Standing(parts, gone, frame, spot.Position);
+        }
+
+        private static bool Inside(Vector3 p, Vector3 min, Vector3 max, float margin)
+        {
+            return p.x > min.x - margin && p.x < max.x + margin && p.y > min.y - margin && p.y < max.y + margin
+                && p.z > min.z - margin && p.z < max.z + margin;
+        }
+
+        /// <summary>Where a spot's sign had its pivot: what a wall's or a ceiling's furniture is fixed by.</summary>
+        private static Vector3 SignPivot(BlueprintSpot spot) => spot.Position - Quaternion.Euler(0f, spot.yaw, 0f) * Blueprints.SignBase();
+
         /// <summary>Whether a spot has something under it: a deck or floor still there, or the ground.</summary>
         private static bool Standing(List<Part> parts, bool[] gone, Frame frame, Vector3 spot)
         {
             Vector2 at = frame.Flat(spot.x, spot.z);
-            if (Ground.Height(at.x, at.y) > frame.Floor + spot.y - 0.3f)
+            if (Ground.Height(at.x, at.y) > frame.Height(spot.y) - 0.3f)
             {
                 return true;
             }
@@ -395,16 +550,20 @@ namespace OdinsPaths
             return false;
         }
 
-        /// <summary>The chest first, then furniture on the deco spots, then the enemies, then clutter.</summary>
+        /// <summary>The chest first (on a chest spot, else a standing deco spot), then furniture on the deco spots, then the enemies, then clutter.</summary>
         private static void Furnish(Blueprint blueprint, List<Part> parts, bool[] gone, List<BlueprintSpot> spots, Placer placer,
             Options options, float decay, System.Random rng, Result result)
         {
             if (rng.NextDouble() < options.ChestChance)
             {
-                int at = Take(spots, "chest", rng);
+                int at = Take(spots, Spots.Chest, rng);
                 if (at < 0)
                 {
-                    at = Take(spots, "deco", rng);
+                    at = Take(spots, Spots.Low, rng);
+                }
+                if (at < 0)
+                {
+                    at = Take(spots, Spots.High, rng);
                 }
                 Vector3 where = at >= 0 ? spots[at].Position : Free(parts, gone, options.Dock, rng);
                 if (at >= 0)
@@ -413,15 +572,11 @@ namespace OdinsPaths
                 }
                 result.Chest = placer.Loose(Chest(options.Biome), where, 90f * rng.Next(4), Anchor.Bottom);
             }
-            string[] deco = blueprint.deco;
-            if (deco != null && deco.Length > 0)
+            foreach (BlueprintSpot spot in spots)
             {
-                foreach (BlueprintSpot spot in spots)
+                if (Spots.IsDeco(spot.kind) && rng.NextDouble() >= decay * 0.4f)
                 {
-                    if (spot.kind == "deco" && rng.NextDouble() >= decay * 0.4f)
-                    {
-                        placer.Deco(deco, spot.Position);
-                    }
+                    placer.Deco(DecoFor(blueprint, spot.kind), spot);
                 }
             }
             if (rng.NextDouble() < options.EnemyChance)
@@ -430,7 +585,7 @@ namespace OdinsPaths
                 int count = 1 + rng.Next(3);
                 for (int k = 0; k < count; k++)
                 {
-                    int at = Take(spots, "enemy", rng);
+                    int at = Take(spots, Spots.Enemy, rng);
                     Vector3 where = at >= 0 ? spots[at].Position : Free(parts, gone, options.Dock, rng);
                     if (at >= 0)
                     {
@@ -539,28 +694,29 @@ namespace OdinsPaths
                 zdo?.Set(ExtensionKey, true);
             }
 
-            /// <summary>One piece of furniture that fits the spot, as a relic.</summary>
-            public void Deco(string[] names, Vector3 at)
+            /// <summary>
+            /// A piece of furniture from those that fit the spot, as a relic, turned as its sign:
+            /// standing with its foot on the sign's, or fixed to a wall or ceiling by its pivot
+            /// where the sign's was, as the hammer fixes both.
+            /// </summary>
+            public void Deco(List<string> names, BlueprintSpot spot)
             {
-                for (int attempt = 0; attempt < 4; attempt++)
+                if (names.Count == 0)
                 {
-                    GameObject relic = Relics.Get(names[rng.Next(names.Length)]);
-                    if (relic == null)
-                    {
-                        continue;
-                    }
-                    Bounds shape = Shape(relic);
-                    // A rug may be wider than a table; nothing may be wider than a tile and a bit.
-                    float limit = shape.size.y < 0.2f ? 3.2f : 2.3f;
-                    if (Mathf.Max(shape.size.x, shape.size.z) > limit)
-                    {
-                        continue;
-                    }
-                    Quaternion turn = Quaternion.Euler(0f, 90f * rng.Next(4), 0f);
-                    Box(relic, at, turn, Anchor.Bottom, out Vector3 pivot, out Vector3 _, out Vector3 _);
-                    Place(relic, pivot, turn, Role.Deco, true);
                     return;
                 }
+                GameObject relic = Relics.Get(names[rng.Next(names.Count)]);
+                if (relic == null)
+                {
+                    return;
+                }
+                Quaternion turn = Quaternion.Euler(0f, spot.yaw, 0f);
+                Vector3 pivot = SignPivot(spot);
+                if (Spots.IsStanding(spot.kind))
+                {
+                    Box(relic, spot.Position, turn, Anchor.Bottom, out pivot, out Vector3 _, out Vector3 _);
+                }
+                Place(relic, pivot, turn, Role.Deco, true);
             }
 
             /// <summary>A chest, a spawner or a loose piece.</summary>
@@ -618,6 +774,64 @@ namespace OdinsPaths
                 }
                 result.Placed.Add(zdo.m_uid);
                 return zdo;
+            }
+        }
+
+        /// <summary>
+        /// The furniture of a blueprint's deco list that fits a kind of spot, else of
+        /// <see cref="DefaultDeco"/>: the list may hold nothing for a wall or a ceiling.
+        /// </summary>
+        private static List<string> DecoFor(Blueprint blueprint, string kind)
+        {
+            List<string> fits = new List<string>();
+            foreach (string[] names in new[] { blueprint.deco, DefaultDeco })
+            {
+                foreach (string name in names ?? new string[0])
+                {
+                    GameObject prefab = Prefab(name);
+                    if (prefab != null && FitsSpot(kind, prefab))
+                    {
+                        fits.Add(name);
+                    }
+                }
+                if (fits.Count > 0)
+                {
+                    break;
+                }
+            }
+            return fits;
+        }
+
+        /// <summary>Furniture for a deco spot whose blueprint lists none of its kind.</summary>
+        internal static readonly string[] DefaultDeco =
+        {
+            "piece_banner01", "piece_banner02", "piece_banner03", "piece_banner04", "piece_banner05", "piece_banner06",
+            "piece_brazierceiling01",
+            "piece_table", "piece_bench01", "piece_chair", "rug_deer",
+        };
+
+        /// <summary>
+        /// Whether a piece of furniture fits a kind of deco spot: one the hammer fixes to ceilings
+        /// only (<c>m_inCeilingOnly</c>) hangs, one it keeps off floors (<c>m_notOnFloor</c>)
+        /// goes on a wall, the rest stands, no higher than a wall (deco_h1) or two (deco_h2);
+        /// none wider than a tile and a bit, a rug a little more.
+        /// </summary>
+        internal static bool FitsSpot(string kind, GameObject prefab)
+        {
+            Piece piece = prefab.GetComponent<Piece>();
+            bool hangs = piece != null && piece.m_inCeilingOnly;
+            bool onWall = piece != null && piece.m_notOnFloor && !hangs;
+            Bounds shape = Shape(prefab);
+            float width = Mathf.Max(shape.size.x, shape.size.z);
+            switch (kind)
+            {
+                case Spots.Hanging: return hangs && width <= MaxWidth;
+                case Spots.Wall: return onWall && width <= MaxWidth;
+                case Spots.Low:
+                case Spots.High:
+                    float tallest = (kind == Spots.Low ? WallHeight : 2f * WallHeight) + 0.1f;
+                    return !hangs && !onWall && shape.size.y <= tallest && width <= (shape.size.y < RugHeight ? MaxRugWidth : MaxWidth);
+                default: return false;
             }
         }
 

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -38,25 +39,28 @@ namespace OdinsPaths
             public int Crossing;
         }
 
-        /// <summary>The harbour stones or posts placed, as their ZDOs; fork is where a main road sets out from the network.</summary>
-        public static List<ZDOID> Place(Trail trail, Structures structures, Vector2? fork = null)
+        /// <summary>
+        /// The harbour stones or posts placed, added to placed as their ZDOs; fork is where a main
+        /// road sets out from the network. The paths to the doors of a harbour's buildings are added to
+        /// doorPaths, for the caller to write after the road.
+        /// </summary>
+        public static IEnumerator Place(Trail trail, Structures structures, List<ZDOID> placed, Vector2? fork = null, List<Buildings.DoorPath> doorPaths = null)
         {
             if (trail.Kind == RoadKind.Main)
             {
-                return Harbours.Place(trail, Find(trail), structures, fork);
+                yield return Harbours.Place(trail, Find(trail), structures, fork, doorPaths, placed);
+                yield break;
             }
-            List<ZDOID> placed = new List<ZDOID>();
             GameObject prefab = ZNetScene.instance.GetPrefab(PostPrefab);
             if (prefab == null)
             {
                 Debug.LogWarning("[OdinsPaths] No " + PostPrefab + " prefab - landings left unmarked.");
-                return placed;
+                yield break;
             }
             foreach (Landing landing in Find(trail))
             {
                 Mark(trail, landing.Shore, landing.Toward, prefab, structures, placed);
             }
-            return placed;
         }
 
         /// <summary>Where the trail's landings are, in order; nothing placed.</summary>

@@ -1,8 +1,8 @@
 # Harbours: docks and buildings
 
 Every new harbour of a main road gets a dock carrying the road out to sea, its harbour stone on
-the dock or beside the road, and a few old buildings beside the road (reworked 2026-09-26, not run
-in game yet). Docks and buildings are **blueprints** in PlanBuild's `.blueprint` format with a
+the dock or beside the road, and a few old buildings: off the road with a path to each door, or
+built onto the dock (reworked 2026-09-26 and 2026-10-01, not run in game yet). Docks and buildings are **blueprints** in PlanBuild's `.blueprint` format with a
 JSON file of settings beside each, loaded at start, made and reworked in game with `docks
 capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
 `ChestChance` (0.35), `EnemyChance` (0.2).
@@ -34,14 +34,28 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
 - **Stone.** On the dock's `stone` spot, facing as the spot says; a dock without one (or no dock):
   on the ground 1.2 m past the road's edge, 2 m inland of the land end, moved up the road off
   anything within 2 m, its height the lower of the ground and the road, sunk 0.2 m.
-- **Buildings.** Up to `Buildings`, a different blueprint each while there are, tried every 3 m
-  along the road from 4 to 40 m inland of the land end, on both sides: front just past the
-  road's levelled edge (`RoadKind.Reach` + 0.5 m), facing the road. Every metre of the box around
-  its floors, walls and piles must be 1 m above the water, rise no more than 2.5 m, be 1.5 m from
-  structures, off this road and outside locations. The floor goes at the highest ground; the
-  piles reach down to the rest. Trees and rocks within 1.5 m of its pieces are cleared, now in
-  generated zones and later when a zone is generated (`Clearing.ClearNewZone`, by the pieces'
-  `OdinsPaths_Building` mark). Another road running past is not checked.
+- **Buildings.** Up to `Buildings`, a different blueprint each while there are, each blueprint
+  tried once before any is repeated. Two kinds (`src/Buildings.cs` has the distances):
+  - **On their own** (no `dock` spot): placed by the **lowest door** (`door` role) - its foot
+    is the building's snap point, and the way in is across the door toward the middle of the
+    floors. Tried along the road inland of the land end, on both sides, the door facing the
+    road a few metres past its levelled edge (a random setback first, then from the nearest).
+    The box around its floors, walls, doors and piles must be dry, not too steep, clear of
+    structures, this road, locations and the other door paths; so must the way from the road to
+    the door. The floor goes at the highest ground; the piles reach down to the rest. A **door
+    path** (a short dirt `Trail` from the road's middle to just short of the door) is written
+    after the road, with the building's own pieces around the door left out of the structures
+    so it reaches the threshold. A building without a door is placed by its front's middle (a
+    warning in the log).
+  - **Joined to the dock** (a `dock` spot): the spot on the outer edge of the dock's deck, level
+    with it, on either side past the land end; the building off that side, turned so the way
+    from its floors' middle through the spot points onto the dock. None of it on the deck, its
+    floors neither buried nor over water deeper than a dock may stand in, clear of structures
+    (the dock's own aside), door paths, the road and locations. No door path. Not at a harbour
+    of the game's (no dock of the mod's).
+  - Trees and rocks around its pieces are cleared, now in generated zones and later when a zone
+    is generated (`Clearing.ClearNewZone`, by the pieces' `OdinsPaths_Building` mark). Another
+    road running past is not checked.
 
 ## The game's harbours first
 
@@ -100,8 +114,8 @@ The pieces (`Blueprints.ReadPlan` / `WritePlan`), as PlanBuild writes them: head
 `#Pieces` and a line per piece, `prefab;category;x;y;z;qx;qy;qz;qw;info;sx;sy;sz` - position
 of the prefab's pivot, rotation as a quaternion, `info` a JSON string (a sign's text), scale
 ignored. PlanBuild never reads the category back, so it holds the piece's **role**; one that
-is no role (a PlanBuild capture writes the hammer's tab there) is guessed. A `sign` reading
-`chest`, `enemy`, `deco` or `stone` is that **spot**, at the sign's foot, facing its yaw.
+is no role (a PlanBuild capture writes the hammer's tab there) is guessed. A `sign` reading a
+spot's kind (below) is that **spot**, at the sign's foot, facing its yaw.
 `#SnapPoints`, `#Terrain` and unknown sections are skipped, as PlanBuild does.
 
 ```
@@ -122,13 +136,15 @@ collider box at `pos`) and `"spots": [{"kind", "pos", "yaw"}]`. It still loads; 
 converts it.
 
 - **Frame.** A dock: origin the middle of its land end (where the road runs on), z out to sea,
-  x right looking out, y up from the deck's top there. A building: origin the middle of its
-  front (the side facing the road), z into it, x right looking in, y up from its floor's top.
+  x right looking out, y up from the deck's top there. A building: any frame, y up, y 0 its
+  floor's top; it is placed by its lowest door or its `dock` spot (above), not by its origin.
+  An old-format building without a door: origin the middle of its front, z into it.
 - `kind` `dock` or `building`; `biomes` `Heightmap.Biome` names (`Meadows`, `BlackForest`,
   `Swamp`, `Mountain`, `Plains`, `Mistlands`, `AshLands`, `DeepNorth`), none for any;
   `preSnow` starts every piece snowed over; `roofReach` (m, 0 = 3) how far a roof piece may be
-  from a standing wall or post; `deco` the furniture `deco` spots pick from (a piece at most
-  2.3 m wide, a rug 3.2 m); `clutter` loose pieces laid on deck pieces at `clutterChance` each.
+  from a standing wall or post; `deco` the furniture the deco spots pick from, each spot what
+  fits its kind (below; when the list has nothing for a kind, `Builder.DefaultDeco`'s);
+  `clutter` loose pieces laid on deck pieces at `clutterChance` each.
 - **Roles:**
 
 | Role | Weathering | Else |
@@ -137,16 +153,25 @@ converts it.
 | `floor` | never | as deck |
 | `pile` | never | the lowest in each column (within 0.3 m across) is stacked on down to the ground, up to 6 more; one wholly underground is left out |
 | `wall` | decay × 50% | |
+| `door` | decay × 50% | the lowest is where a building on its own is entered; a captured piece with the game's `Door` is guessed one |
 | `roof` | decay × 60%, and whenever no wall or post stands within `roofReach` | |
 | `post` | decay × 50% | |
 | `lamp` | with the post under it (within 0.6 m) | |
-| `deco` | decay × 40% | a relic: drops nothing, refuses the hammer |
+| `deco` | decay × 40% | furniture built as placed, never swapped; a relic: drops nothing, refuses the hammer. Captured furniture (the hammer's Furniture tab) is guessed one |
 | `clutter`, `keep` | never | |
 
-- **Spots:** `chest` (the biome's treasure chest, at `ChestChance`; else on a `deco` spot, else a
-  free deck), `enemy` (one to three of the biome's one-shot spawners, at `EnemyChance`), `deco`
-  (furniture from `deco`, at 1 - decay × 40%), `stone` (a dock's harbour stone). A spot whose
-  deck is gone and has no ground under it is dropped.
+- **Spots** - the signs are the only thing ever replaced:
+  - `chest`: the biome's treasure chest, at `ChestChance`; else on a standing deco spot, else a
+    free deck.
+  - `enemy`: one to three of the biome's one-shot spawners, at `EnemyChance`.
+  - Furniture from `deco`, at 1 - decay × 40%, turned as its sign. `deco_h1`: standing, no
+    higher than a wall; `deco_h2`: standing, no higher than two; both on the sign's foot.
+    `deco_wall`: what the hammer keeps off floors (`Piece.m_notOnFloor`: banners); `deco_hanging`:
+    what it fixes to ceilings only (`m_inCeilingOnly`: the hanging brazier); both by their pivot
+    at the sign's, as the hammer fixes a sign and a banner alike. The old `deco` reads as `deco_h1`.
+  - `stone`: a dock's harbour stone. `dock`: where a building joins a dock (above); nothing goes there.
+  - A standing spot whose deck is gone and has no ground under it is dropped; a wall or hanging
+    one whose wall or ceiling is gone, too.
 - Condition 0.05-0.95 per dock or building; every piece's health is condition ± 0.3 of its
   maximum, which the game shows as new, worn or broken. The chests, spawners and relics:
   `Builder.Chest`, `Builder.Enemies`, `Relics`.
@@ -156,10 +181,12 @@ converts it.
 Debug build, devcommands on, a creative/debug-mode player with the hammer:
 
 1. `docks build <name> edit` (on a shore, standing where the road would end, looking out) or
-   `docks house <name> edit` (at the building's front, looking in): the blueprint as new, of the
+   `docks house <name> edit` (at its lowest door, looking in): the blueprint as new, of the
    game's pieces placed as yours, so the hammer takes them down, a **sign** at each spot reading
    its kind. A new one: build it yourself, standing at its origin when you start.
-2. Rework it with the hammer. A spot is a sign reading `chest`, `enemy`, `deco` or `stone`.
+2. Rework it with the hammer. A spot is a sign reading `chest`, `enemy`, `deco_h1`, `deco_h2`,
+   `deco_wall`, `deco_hanging`, `stone` or `dock`. Give a building one door at the ground (the
+   lowest counts), and a `dock` sign only to one that is built onto a dock.
    Piles only need to reach a little below the deck; the rest is added where it is raised.
 3. `docks capture <name> [dock|building] [radius]` (16 m): everything built around you, in the
    frame of the last edit build within 40 m (else your feet and view), written to the player's
@@ -235,6 +262,12 @@ drop their third as any ruin does, each only where it is found anyway.
 - The stone on the dock (its size on a 4 m walkway) and beside the road (its height).
 - Buildings: their spots beside the road, the floor at the highest ground, piles on the slope,
   trees cleared, nothing on another road.
+- Doors (2026-10-01): the way in found right (the door faces the road, not the building's back),
+  the door path painted and levelled up to the threshold, not into the floor; a building joined
+  to a dock flush with the deck, on the right side of it, its piles reaching the seabed.
+- Deco spots: a banner on a `deco_wall` sign's wall and a brazier under a `deco_hanging` sign's
+  ceiling (pivot to pivot, the same turn - the sign's and the banner's fronts may face apart),
+  standing furniture turned as its sign.
 - The edit → capture round trip: same places, roles kept, pile stacks left out, signs as spots.
 - The PlanBuild round trip: `docks export` of the old files (the anchors resolved to the same
   places), PlanBuild placing them, its capture fitted back by `docks import` (turn, shift, roles).

@@ -6,9 +6,8 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 ## Up next
 
-- **Stutter, if a growth still hitches** (see "To check in game"): count GCs per stage (the
-  writer allocates ~400 KB a zone, pool `Nearest`'s arrays), and make the clearing one zone a
-  frame with the structures already gathered.
+- **Stutter, if a growth still hitches** (see "To check in game"): a harbour's dock and buildings
+  over frames (`Builder`); the clearing one zone a frame with the structures already gathered.
 - **From Procedural Roads' PRs** (read 2026-10-01, `docs/prior-art.md`), in order:
   - **Compiler ownership:** `TerrainWriter` sets `s_TCData` whoever owns the compiler; a
     client digging there at the same time can wipe the road, or the road its digging. Defer
@@ -42,7 +41,11 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - sign post for the main network
 - structure road ends: paint dirt without leveling - trying a wider area to mask not knowing the "stair" position
 - **Harbour blueprints:** rebuild the shipped ones (pitched roofs, doors, a Mistlands
-  building); the user makes them with PlanBuild (`docs/docks.md`).
+  building); the user makes them with PlanBuild (`docs/docks.md`). Only `WoodHut` has a door
+  so far: the old-format buildings are placed by their front, and none joins a dock yet (a
+  `dock` sign). Their deco spots are all `deco_h1` (the old `deco`).
+- **Harbour buildings on the terrain:** fit a building and its door to the ground at the door
+  (today the floor goes at the highest ground and the door path follows the ground).
 - **The game's harbours:** **find** the swamp location that looks like a dock (not named like
   one; the `SwampHut*` stand on log piles) and whether it can serve as the Mistlands piers do;
   spurs landing at a pier.
@@ -67,8 +70,11 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   the sea to it): the pins on the berth and the pier's land end (the turn read from the crane),
   the road led down the pier and round the hut, the stone beside the land end (its height), no
   dock, buildings outside the harbour, how long a harbour's zone takes to generate (the log).
-- **Stutter:** a start-up growth's slowest frames in `Player.log` against the 110-265 ms of
-  2026-10-01 (before the writer's per-zone location filter, frame budget and request cap).
+- **Stutter:** a full `paths grow all` (2026-10-01, 21 roads in 128 s) had no hitch with a
+  garbage collection and none left in "Looking at what stands in the way"; its slowest frames
+  (59-367 ms, roads with sea crossings) were the harbours being built, put down to the clearing.
+  They now build one per frame under their own stage - check which stage the next growth names,
+  and split a harbour's dock from its buildings if one harbour alone is still a hitch.
 - **Docks and harbour buildings** (`docs/docks.md`): never run yet.
 - **2026-10-01 changes:** no grass in a dirt/stone fade (`Trail.Handover`), a player's broken
   boulder (`*_frac`) cleared off a road, no "more than one terrain compiler" warnings in the log.
@@ -87,7 +93,9 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 Nothing is released. Risks to watch:
 
-- An exception in a growth leaves `Grower.Busy` set until the world is left.
+- An exception in a road now stops the growth (`Grower.Guarded`) without marking the job: its
+  half-written terrain stays, the road is not in the network, and the next trigger tries again.
+  `paths preview` is not guarded.
 - `paths undo` takes back only the last job, not cleared trees and rocks or links added to an
   older harbour; `paths reset confirm` takes everything, the player's digging too.
 - A base is stored by its first ward; a base that moves over 150 m gets a second road.
@@ -100,5 +108,3 @@ Nothing is released. Risks to watch:
 - Our pre-written compiler in an ungenerated zone: if generation ever makes a second one, the
   game keeps the one with more operations (`TerrainComp.Awake`) - ours has one. Verify no
   location carries a `TerrainOp`.
-- `paths grow` crashed with a NullReferenceException in `DropLinePins` from `GrowRoutine`
-  (`src/Dev/PathPreview.cs`, Debug only), 2026-10-01 log.

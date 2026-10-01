@@ -29,7 +29,7 @@ namespace OdinsPaths
         /// <summary>How far inland the land end may move to where the road is as high as the deck.</summary>
         private const float LandEndSearch = 8f;
         /// <summary>Water deeper under the deck than this rules a blueprint out: the piles would be too long.</summary>
-        private const float MaxDepth = 12f;
+        internal const float MaxDepth = 12f;
         /// <summary>A structure closer than this to a piece (a player's dock, a ruin) rules a blueprint out.</summary>
         private const float Taken = 1.5f;
 
@@ -219,7 +219,7 @@ namespace OdinsPaths
                         buried++;
                         continue;
                     }
-                    if (frame.Floor + part.Max.y - ground > MaxDepth)
+                    if (frame.Height(part.Max.y) - ground > MaxDepth)
                     {
                         why = blueprint.name + ": the water gets deeper than " + MaxDepth + " m under it";
                         return false;

@@ -3,14 +3,14 @@
 #Description:"OdinsPaths harbour building: each piece's category is its role, a sign reading chest, enemy, deco or stone is a spot. The settings are in WoodHut.json."
 #Category:OdinsPaths
 #Pieces
-wood_door;wall;1.01;0.903;0.031;0;0.999969;0;0.007854;"";1;1;1
+wood_door;door;1.01;0.903;0.031;0;0.999969;0;0.007854;"";1;1;1
 wood_wall_half;wall;3.994;0.403;1.078;0;0.701531;0;0.712639;"";1;1;1
 wood_wall_half;wall;1.01;2.403;0.031;0;0.999969;0;0.007854;"";1;1;1
 wood_floor;floor;1.01;-0.097;1.015;0;0;0;1;"";1;1;1
 wood_roof_45;roof;2.927;1.903;5.326;0;0.701531;0;0.712639;"";1;1;1
 wood_floor;floor;3.016;-0.1;3.016;0;0.999969;0;0.007854;"";1;1;1
 wood_wall_half;wall;-0.99;0.403;0.031;0;0.999969;0;0.007854;"";1;1;1
-bed;post;3.02;0.017;3.385;0;0.999969;0;0.007854;"";1;1;1
+bed;deco;3.02;0.017;3.385;0;0.999969;0;0.007854;"";1;1;1
 wood_wall_roof_45;roof;2.906;0.9;6.015;0;0.999969;0;0.007854;"";1;1;1
 wood_wall_roof_top_45;roof;1.01;2.903;0.031;0;0.999969;0;0.007854;"";1;1;1
 wood_beam_45;roof;3.01;1.903;0.062;0;0.999969;0;0.007854;"";1;1;1

@@ -214,7 +214,8 @@ namespace OdinsPaths
             Progress.Stage("Looking at what stands in the way", 0f, 0.01f);
             // A network has thousands of starts; the areas are drawn around the few that matter.
             List<Vector2> positions = Start.Positions(PathSearch.Anchors(starts, outerGoals));
-            List<Circle> locations = LocationsAround(positions, everyGoal);
+            List<Circle> locations = null;
+            yield return LocationsAround(positions, everyGoal, null, 0f, found => locations = found);
             // A harbour of the game's is no place to keep out of for the search, only for the
             // levelling: its pieces are structures, and a crossing through it is led along its pier.
             List<Circle> searched = berths == null ? locations
@@ -283,6 +284,8 @@ namespace OdinsPaths
                 if (search.Result == null && search.Limit == FineAloneLimit && search.Expanded > FineAloneLimit)
                 {
                     report("The fine pass alone flooded; starting over at 16 m.");
+                    // Every pass in the outcome has a line; the flooded one has none.
+                    outcome.Passes.Remove(search);
                     passes = new List<Pass> { new Pass(16f), new Pass(PathSearch.FineCell, OdinsPathsPlugin.CorridorWidth.Value) };
                     if (options.FirstOnly)
                     {
@@ -379,7 +382,18 @@ namespace OdinsPaths
             yield return TerrainWriter.Write(outcome.Trail, locations, structures, outcome.Written);
             Progress.Stage("Clearing trees and rocks", WriteShare, ClearShare);
             yield return Clearing.Clear(outcome.Trail, outcome.Cleared);
-            outcome.Landings = OdinsPaths.Landings.Place(outcome.Trail, structures, last.Origin.Position);
+            List<Buildings.DoorPath> doorPaths = new List<Buildings.DoorPath>();
+            // Their own stages, or the frame watch puts a slow harbour down to the clearing.
+            Progress.Stage("Building the harbours", ClearShare, ClearShare);
+            yield return OdinsPaths.Landings.Place(outcome.Trail, structures, outcome.Landings, last.Origin.Position, doorPaths);
+            // The harbour buildings' doors fork off the road, written after it.
+            Progress.Stage("Paths to the harbour buildings", ClearShare, ClearShare);
+            foreach (Buildings.DoorPath path in doorPaths)
+            {
+                yield return TerrainWriter.Write(path.Trail, locations, path.Structures, outcome.Written);
+                yield return Clearing.Clear(path.Trail, outcome.Cleared);
+            }
+            Progress.Stage("Lamps", ClearShare, ClearShare);
             outcome.Lamps = OdinsPaths.Lamps.Place(outcome.Trail, structures, locations);
             outcome.WriteMilliseconds = (Time.realtimeSinceStartup - started) * 1000.0;
             done(outcome);
@@ -635,7 +649,8 @@ namespace OdinsPaths
             // A goal sits 1 m outside its point of interest, but a wide cell's centre can fall
             // inside and pay ten times for the last step: their circles shrink by most of a cell.
             // They still keep a spur to one from cutting through another.
-            List<Circle> locations = LocationsAround(positions, goals, centres, cell * 0.75f);
+            List<Circle> locations = null;
+            yield return LocationsAround(positions, goals, centres, cell * 0.75f, found => locations = found);
             Corridor corridor = new Corridor(road.Points, 2f * (reach + cell));
             // The spur search stays in the corridor, and so does every spur written.
             Structures structures = null;
@@ -679,7 +694,7 @@ namespace OdinsPaths
                     yield return TerrainWriter.Write(trail, locations, structures, outcome.Written);
                     Progress.Stage(which + ", clearing", at + slice * 0.8f, at + slice);
                     yield return Clearing.Clear(trail, outcome.Cleared);
-                    outcome.Landings.AddRange(Landings.Place(trail, structures));
+                    yield return Landings.Place(trail, structures, outcome.Landings);
                     outcome.Lamps.AddRange(Lamps.Place(trail, structures, locations));
                 }
             }
@@ -701,56 +716,79 @@ namespace OdinsPaths
 
         /// <summary>
         /// Every location near the search area, as a circle to keep out of - except the ones a
-        /// start or a goal lies in, which the path has to leave or reach. Server only: clients
-        /// hold no location instances.
+        /// start or a goal lies in, which the path has to leave or reach. Sorted on the worker
+        /// thread: over a world's thousands of locations, against every start, it was the slowest
+        /// frame of a road (2026-10-01). Server only: clients hold no location instances.
         /// </summary>
-        private static List<Circle> LocationsAround(List<Vector2> starts, List<Vector2> goals, List<Vector2> shrunk = null, float shrink = 0f)
+        private static IEnumerator LocationsAround(List<Vector2> starts, List<Vector2> goals, List<Vector2> shrunk, float shrink,
+            Action<List<Circle>> done)
         {
+            Circle[] all = EveryLocation();
             List<Circle> result = new List<Circle>();
-            float[] reach = new float[goals.Count];
-            for (int g = 0; g < goals.Count; g++)
+            yield return Worker.Run(() =>
             {
-                foreach (Vector2 start in starts)
-                {
-                    reach[g] = Mathf.Max(reach[g], PathSearch.EllipseLimit(start, goals[g]));
-                }
-            }
-            foreach (ZoneSystem.LocationInstance instance in ZoneSystem.instance.m_locationInstances.Values)
-            {
-                Vector2 center = new Vector2(instance.m_position.x, instance.m_position.z);
-                bool near = false;
+                float[] reach = new float[goals.Count];
                 for (int g = 0; g < goals.Count; g++)
                 {
-                    near |= Vector2.Distance(center, goals[g]) <= reach[g];
+                    foreach (Vector2 start in starts)
+                    {
+                        reach[g] = Mathf.Max(reach[g], PathSearch.EllipseLimit(start, goals[g]));
+                    }
                 }
-                if (!near)
+                foreach (Circle location in all)
                 {
-                    continue;
+                    Circle circle = location;
+                    bool near = false;
+                    for (int g = 0; g < goals.Count && !near; g++)
+                    {
+                        near = Vector2.Distance(circle.Center, goals[g]) <= reach[g];
+                    }
+                    if (!near || goals.Exists(goal => circle.Contains(goal)))
+                    {
+                        continue;
+                    }
+                    if (shrunk != null && shrunk.Exists(c => (c - circle.Center).sqrMagnitude < 1f))
+                    {
+                        circle.Radius = Mathf.Max(circle.Radius - shrink, 1f);
+                    }
+                    if (!starts.Exists(start => circle.Contains(start)))
+                    {
+                        result.Add(circle);
+                    }
                 }
-                Circle circle = new Circle
-                {
-                    Center = center,
-                    // Its buildings' reach, which can be well past the exterior radius (Footprints).
-                    Radius = Mathf.Max(Footprints.Radius(instance.m_location), MinLocationRadius),
-                };
-                if (goals.Exists(goal => circle.Contains(goal)))
-                {
-                    continue;
-                }
-                if (shrunk != null && shrunk.Exists(c => (c - center).sqrMagnitude < 1f))
-                {
-                    circle.Radius = Mathf.Max(circle.Radius - shrink, 1f);
-                }
-                bool holdsStart = false;
-                foreach (Vector2 start in starts)
-                {
-                    holdsStart |= circle.Contains(start);
-                }
-                if (!holdsStart)
-                {
-                    result.Add(circle);
-                }
+            });
+            done(result);
+        }
+
+        private static Circle[] everyLocation;
+        private static ZoneSystem everyLocationFor;
+
+        /// <summary>
+        /// Every location instance as a circle of its buildings' reach (Footprints), which can be
+        /// well past the exterior radius - read on the main thread once per world: the instances
+        /// are set when the world's locations are generated and only flagged placed after.
+        /// </summary>
+        private static Circle[] EveryLocation()
+        {
+            Dictionary<Vector2s, ZoneSystem.LocationInstance> instances = ZoneSystem.instance.m_locationInstances;
+            if (everyLocation != null && everyLocationFor == ZoneSystem.instance && everyLocation.Length == instances.Count)
+            {
+                return everyLocation;
             }
+            Dictionary<ZoneSystem.ZoneLocation, float> radius = new Dictionary<ZoneSystem.ZoneLocation, float>();
+            Circle[] result = new Circle[instances.Count];
+            int i = 0;
+            foreach (ZoneSystem.LocationInstance instance in instances.Values)
+            {
+                float r = MinLocationRadius;
+                if (instance.m_location != null && !radius.TryGetValue(instance.m_location, out r))
+                {
+                    radius[instance.m_location] = r = Mathf.Max(Footprints.Radius(instance.m_location), MinLocationRadius);
+                }
+                result[i++] = new Circle { Center = new Vector2(instance.m_position.x, instance.m_position.z), Radius = r };
+            }
+            everyLocation = result;
+            everyLocationFor = ZoneSystem.instance;
             return result;
         }
     }

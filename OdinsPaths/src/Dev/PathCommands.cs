@@ -728,53 +728,68 @@ namespace OdinsPaths
             Progress.Begin(count);
             System.Diagnostics.Stopwatch total = System.Diagnostics.Stopwatch.StartNew();
             int done = 0;
-            for (int i = 0; i < count; i++)
+            // An exception in a road must not leave the bar up and every later growth refused.
+            try
             {
-                List<Planner.Job> due = Planner.Due(network, everything);
-                if (due.Count == 0)
+                for (int i = 0; i < count; i++)
                 {
-                    Say(terminal, "Nothing more is due.");
-                    break;
+                    List<Planner.Job> due = Planner.Due(network, everything);
+                    if (due.Count == 0)
+                    {
+                        Say(terminal, "Nothing more is due.");
+                        break;
+                    }
+                    Planner.Job job = due[0];
+                    Say(terminal, (write ? "Laying " : "Searching ") + job + ".");
+                    Progress.Jobs(i + Mathf.Min(due.Count, count - i));
+                    Progress.Job(i, job.Title);
+                    PathLayer.Outcome result = null;
+                    System.Exception error = null;
+                    yield return Grower.Guarded(Planner.Run(job, network, write, new PathLayer.Options(), text => Say(terminal, text), outcome => result = outcome),
+                        e => error = e);
+                    if (world != ZDOMan.instance)
+                    {
+                        break;
+                    }
+                    if (error != null)
+                    {
+                        Say(terminal, "Laying " + job + " failed, see the log: " + error.Message);
+                        UnityEngine.Debug.LogError("[OdinsPaths] " + error);
+                        break;
+                    }
+                    done++;
+                    Say(terminal, Progress.Frames() + ".");
+                    if (write && result.Failure == null)
+                    {
+                        lastBackups = result.Written.Backups;
+                        lastLandings = new List<ZDOID>(result.Landings);
+                        lastLandings.AddRange(result.Lamps);
+                        lastRoad = result.Road;
+                        RememberSpurs(result.Spurs);
+                    }
+                    Report(terminal, result, write, job.Goals, result.Failure == null ? result.Search.Origin.Position : job.Goals[0]);
+                    if (result.Spurs != null)
+                    {
+                        ReportSpurs(terminal, result.Spurs, write);
+                    }
+                    if (write && result.Failure != null)
+                    {
+                        Say(terminal, job.Name + " is marked unreachable; 'paths forget' clears that.");
+                    }
                 }
-                Planner.Job job = due[0];
-                Say(terminal, (write ? "Laying " : "Searching ") + job + ".");
-                Progress.Jobs(i + Mathf.Min(due.Count, count - i));
-                Progress.Job(i, job.Title);
-                PathLayer.Outcome result = null;
-                yield return Planner.Run(job, network, write, new PathLayer.Options(), text => Say(terminal, text), outcome => result = outcome);
-                if (world != ZDOMan.instance)
-                {
-                    break;
-                }
-                done++;
-                Say(terminal, Progress.Frames() + ".");
-                if (write && result.Failure == null)
-                {
-                    lastBackups = result.Written.Backups;
-                    lastLandings = new List<ZDOID>(result.Landings);
-                    lastLandings.AddRange(result.Lamps);
-                    lastRoad = result.Road;
-                    RememberSpurs(result.Spurs);
-                }
-                Report(terminal, result, write, job.Goals, result.Failure == null ? result.Search.Origin.Position : job.Goals[0]);
-                if (result.Spurs != null)
-                {
-                    ReportSpurs(terminal, result.Spurs, write);
-                }
-                if (write && result.Failure != null)
-                {
-                    Say(terminal, job.Name + " is marked unreachable; 'paths forget' clears that.");
-                }
-            }
-            if (world == ZDOMan.instance)
-            {
-                Progress.End();
-                if (done > 1)
+                if (world == ZDOMan.instance && done > 1)
                 {
                     Say(terminal, done + " roads in " + (total.ElapsedMilliseconds / 1000f).ToString("F1") + " s.");
                 }
             }
-            Grower.Release(world);
+            finally
+            {
+                if (world == ZDOMan.instance)
+                {
+                    Progress.End();
+                }
+                Grower.Release(world);
+            }
         }
 
         /// <summary>

@@ -28,6 +28,8 @@ namespace OdinsPaths
         /// <summary>Prefab hash -> whether it is a structure; built once per scene.</summary>
         private static Dictionary<int, bool> kinds;
         private static ZNetScene kindsFor;
+        /// <summary>The array a gathering copies every ZDO into, to read them off the main thread.</summary>
+        private static ZDO[] pool;
 
         private readonly Dictionary<long, List<Vector2>> buckets = new Dictionary<long, List<Vector2>>();
 
@@ -47,15 +49,24 @@ namespace OdinsPaths
             Dictionary<int, Clearing.Obstacle> obstacles = Clearing.Obstacles();
             List<ZDO> standing = new List<ZDO>();
             Dictionary<ZDOID, ZDO> objects = ZDOMan.instance.m_objectsByID;
-            ZDO[] all = new ZDO[objects.Count];
+            // Kept from road to road: a new array of every ZDO was megabytes, a collection each
+            // time. Taken out of the pool meanwhile, so a second gathering makes its own.
+            ZDO[] all = pool;
+            pool = null;
+            if (all == null || all.Length < objects.Count)
+            {
+                all = new ZDO[objects.Count + objects.Count / 4];
+            }
+            int count = objects.Count;
             objects.Values.CopyTo(all, 0);
             Structures result = new Structures();
             // A ZDO the main thread moves or frees meanwhile is read torn at worst: one piece
             // missed or kept for a road, no more.
             yield return Worker.Run(() =>
             {
-                foreach (ZDO zdo in all)
+                for (int i = 0; i < count; i++)
                 {
+                    ZDO zdo = all[i];
                     Vector3 p = zdo.GetPosition();
                     if (p.y > InteriorHeight)
                     {
@@ -92,6 +103,9 @@ namespace OdinsPaths
                 result.AddDisc(new Vector2(p.x, p.z), obstacle.Reach * Clearing.ScaleOf(zdo, obstacle.PrefabScale));
                 result.Obstacles++;
             }
+            // The ZDOs are not kept alive by the pool.
+            Array.Clear(all, 0, count);
+            pool = all;
             done(result);
         }
 

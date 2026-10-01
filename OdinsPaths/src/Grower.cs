@@ -51,6 +51,48 @@ namespace OdinsPaths
             }
         }
 
+        /// <summary>
+        /// Runs work and the coroutines it yields itself, one step a frame as Unity would, but an
+        /// exception anywhere in them is handed to failed and ends it. Unity stops a coroutine whose
+        /// nested one threw without running its finally blocks, which left Busy set.
+        /// </summary>
+        public static IEnumerator Guarded(IEnumerator work, System.Action<System.Exception> failed)
+        {
+            Stack<IEnumerator> nested = new Stack<IEnumerator>();
+            nested.Push(work);
+            while (nested.Count > 0)
+            {
+                IEnumerator top = nested.Peek();
+                bool more;
+                try
+                {
+                    more = top.MoveNext();
+                }
+                catch (System.Exception e)
+                {
+                    failed(e);
+                    yield break;
+                }
+                if (!more)
+                {
+                    nested.Pop();
+                    // Unity, too, resumes the outer one a frame later: two budgeted steps never share a frame.
+                    if (nested.Count > 0)
+                    {
+                        yield return null;
+                    }
+                }
+                else if (top.Current is IEnumerator inner)
+                {
+                    nested.Push(inner);
+                }
+                else
+                {
+                    yield return top.Current;
+                }
+            }
+        }
+
         /// <summary>From the plugin's Update: the start growth, once per world.</summary>
         public static void Tick()
         {
@@ -117,54 +159,73 @@ namespace OdinsPaths
         {
             ZDOMan world = ZDOMan.instance;
             int laid = 0;
-            do
+            // An exception in a road must not leave every later growth refused until the world is left.
+            try
             {
-                again = false;
-                List<Planner.Job> due = Planner.Due(Network.Current);
-                if (due.Count > 0)
+                do
                 {
-                    Debug.Log("[OdinsPaths] Growing the network (" + why + "): " + due.Count + " due.");
-                    if (!Progress.Active)
+                    again = false;
+                    List<Planner.Job> due = Planner.Due(Network.Current);
+                    if (due.Count > 0)
                     {
-                        Progress.Begin(due.Count);
-                        Progress.Announce("Odin's Paths: laying " + (due.Count == 1 ? "a road" : due.Count + " roads")
-                            + ". The game may stutter until " + (due.Count == 1 ? "it is" : "they are") + " done.");
+                        Debug.Log("[OdinsPaths] Growing the network (" + why + "): " + due.Count + " due.");
+                        if (!Progress.Active)
+                        {
+                            Progress.Begin(due.Count);
+                            Progress.Announce("Odin's Paths: laying " + (due.Count == 1 ? "a road" : due.Count + " roads")
+                                + ". The game may stutter until " + (due.Count == 1 ? "it is" : "they are") + " done.");
+                        }
+                    }
+                    // Planned afresh after each job: the next one may start from the road just laid.
+                    while (due.Count > 0 && ZDOMan.instance == world && Ready())
+                    {
+                        Planner.Job job = due[0];
+                        Progress.Jobs(laid + due.Count);
+                        Progress.Job(laid, job.Title);
+                        PathLayer.Outcome result = null;
+                        System.Exception error = null;
+                        yield return Guarded(Planner.Run(job, Network.Current, true, new PathLayer.Options(), text => { }, outcome => result = outcome),
+                            e => error = e);
+                        if (ZDOMan.instance != world)
+                        {
+                            yield break;
+                        }
+                        if (error != null)
+                        {
+                            // Not marked unreachable, so it would be due again at once: the growth stops.
+                            Debug.LogError("[OdinsPaths] Laying " + job + " failed; growing stops until the next trigger. " + error);
+                            yield break;
+                        }
+                        Debug.Log("[OdinsPaths] " + (result.Failure == null
+                            ? "Laid " + job + ": " + result.Trail.Length.ToString("F0") + " m, " + result.Written.Zones + " zones, "
+                                + (result.Spurs != null ? result.Spurs.Roads.Count : 0) + " spurs; " + Progress.Frames() + "."
+                            : "No way to " + job + " (" + result.Failure + "); not tried again."));
+                        laid++;
+                        due = Planner.Due(Network.Current);
+                        Progress.Announce(result.Failure == null
+                            ? "Odin's Paths: the road to " + job.Title + " is laid (" + laid + " of " + (laid + due.Count) + ")."
+                            : "Odin's Paths: no road to " + job.Title + " could be found.");
+                    }
+                    why = "more became due meanwhile";
+                }
+                while (again && ZDOMan.instance == world && Ready());
+                if (Progress.Active)
+                {
+                    Progress.End();
+                    if (laid > 1)
+                    {
+                        Progress.Announce("Odin's Paths: all roads are laid.");
                     }
                 }
-                // Planned afresh after each job: the next one may start from the road just laid.
-                while (due.Count > 0 && ZDOMan.instance == world && Ready())
-                {
-                    Planner.Job job = due[0];
-                    Progress.Jobs(laid + due.Count);
-                    Progress.Job(laid, job.Title);
-                    PathLayer.Outcome result = null;
-                    yield return Planner.Run(job, Network.Current, true, new PathLayer.Options(), text => { }, outcome => result = outcome);
-                    if (ZDOMan.instance != world)
-                    {
-                        yield break;
-                    }
-                    Debug.Log("[OdinsPaths] " + (result.Failure == null
-                        ? "Laid " + job + ": " + result.Trail.Length.ToString("F0") + " m, " + result.Written.Zones + " zones, "
-                            + (result.Spurs != null ? result.Spurs.Roads.Count : 0) + " spurs; " + Progress.Frames() + "."
-                        : "No way to " + job + " (" + result.Failure + "); not tried again."));
-                    laid++;
-                    due = Planner.Due(Network.Current);
-                    Progress.Announce(result.Failure == null
-                        ? "Odin's Paths: the road to " + job.Title + " is laid (" + laid + " of " + (laid + due.Count) + ")."
-                        : "Odin's Paths: no road to " + job.Title + " could be found.");
-                }
-                why = "more became due meanwhile";
             }
-            while (again && ZDOMan.instance == world && Ready());
-            if (Progress.Active)
+            finally
             {
-                Progress.End();
-                if (laid > 1)
+                if (Progress.Active && ZDOMan.instance == world)
                 {
-                    Progress.Announce("Odin's Paths: all roads are laid.");
+                    Progress.End();
                 }
+                Release(world);
             }
-            Release(world);
         }
     }
 

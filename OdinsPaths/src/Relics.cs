@@ -25,12 +25,16 @@ namespace OdinsPaths
         private static readonly HashSet<string> failed = new HashSet<string>();
         private static GameObject holder;
 
-        /// <summary>Every blueprint's furniture - its deco list and its deco pieces - into this scene's <c>ZNetScene</c>, copied the first time.</summary>
+        /// <summary>Every blueprint's furniture - its deco list and its deco pieces - and the spots' defaults into this scene's <c>ZNetScene</c>, copied the first time.</summary>
         public static void Register()
         {
             if (ZNetScene.instance == null)
             {
                 return;
+            }
+            foreach (string name in Builder.DefaultDeco)
+            {
+                Get(name);
             }
             foreach (Blueprint blueprint in Blueprints.All)
             {
