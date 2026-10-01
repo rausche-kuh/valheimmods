@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A road to a trader now always ends at the trader: Haldor, Hildir and the Bog Witch settle in the
+  camp their road leads to, and it shows on everyone's map as soon as the road is there. Turn
+  `[Network] RevealTraders` off to have no roads to the traders and search for them yourself.
 - Where a road meets the sea, a vegvisir with blue runes marks the harbour. Use it to see the
   harbour across the water on your map, or every harbour across when roads set out from there to
   several islands. The stone also marks its own harbour on your map. Players need the mod to see

@@ -165,6 +165,7 @@ namespace OdinsPaths
                 do
                 {
                     again = false;
+                    Traders.Settle(Network.Current);
                     List<Planner.Job> due = Planner.Due(Network.Current);
                     if (due.Count > 0)
                     {

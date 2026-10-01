@@ -9,9 +9,6 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - **Stutter, if a growth still hitches** (see "To check in game"): a harbour's dock and buildings
   over frames (`Builder`); the clearing one zone a frame with the structures already gathered.
 - **From Procedural Roads' PRs** (read 2026-10-01, `docs/prior-art.md`), in order:
-  - **Compiler ownership:** `TerrainWriter` sets `s_TCData` whoever owns the compiler; a
-    client digging there at the same time can wipe the road, or the road its digging. Defer
-    such a zone while the owner is a client in it (`IsInPeerActiveArea`), retry later.
   - **Location terrain at road ends:** the game applies a location's own `TerrainModifier`
     levelling before our deltas, and the writer's skip circles leave out the start and goal
     locations (`PathLayer.LocationsAround`), so deltas there are off (theirs up to 9 m). Read
@@ -65,6 +62,11 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 ## To check in game
 
+- **Traders settled** (2026-10-01, `docs/network.md`): after a growth, Haldor's, Hildir's and
+  the Bog Witch's icons on the map at their road's end before anyone goes there, the log's
+  "settled at ... other camps dropped", the trader standing there when the zone generates, still
+  there after a restart (the save keeps the trimmed list), a client's map too; with
+  `RevealTraders` off no trader road and no icon.
 - **Names:** `$npc_haldor` / `hildir` / `bogwitch` in the messages are guesses.
 - **The game's harbours** (`paths ports` near a `Mistlands_Harbour1`, then a `paths lay` across
   the sea to it): the pins on the berth and the pier's land end (the turn read from the crane),
@@ -89,7 +91,7 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 # Bugs
 
-- Traders need to be fixed, before paths are layed out. This may need estimates, but these should be good enough
+- (none open; the traders' reveal is under "To check in game")
 
 Nothing is released. Risks to watch:
 
@@ -98,13 +100,16 @@ Nothing is released. Risks to watch:
   `paths preview` is not guarded.
 - `paths undo` takes back only the last job, not cleared trees and rocks or links added to an
   older harbour; `paths reset confirm` takes everything, the player's digging too.
+- A settled trader's dropped camps do not come back with `paths undo` / `reset`: the trader stays
+  where its first road led.
 - A base is stored by its first ward; a base that moves over 150 m gets a second road.
 - A compiler created while a client generates the same zone - verify no vanilla path does that.
 - In a zone generated after its road, vegetation on the shoulder can float or sink a little.
 - A harbour stone's height beside the road (the lower of `Ground.Height` and the road) - verify.
 - A rock without meshes counts as 2.5 m wide; a scattered MineRock5 may be cleared early.
-- A player digging in a zone while the server rewrites it: last writer wins (see compiler
-  ownership above).
+- A player digging in a zone while the server rewrites it: last writer wins, whoever owns the
+  compiler. Accepted - growth is not meant to run while players change the world, and the server
+  winning is fine.
 - Our pre-written compiler in an ungenerated zone: if generation ever makes a second one, the
   game keeps the one with more operations (`TerrainComp.Awake`) - ours has one. Verify no
   location carries a `TerrainOp`.

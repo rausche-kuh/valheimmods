@@ -137,10 +137,22 @@ to the player by a trigger of its own - a boss kill or similar; it is prefab dat
 the camp): due from the start, every camp a goal, the cheapest taken - or with `Remote`, the one
 farthest from the network. A player who follows the road generates that camp and makes it the
 trader. Until 2026-09-25 a trader was due only once placed, which made `Remote` choose nothing:
-by then there is one camp. The risk is a player finding another camp first - the game drops the
-pinned one, and the road ends at an empty clearing. The planner notices (the pin matches no
-instance any more, `Planner.Vanished`), drops the pin and lays a road to the camp that is there;
-the old road stays.
+by then there is one camp.
+
+**The trader is settled at the road's end** (2026-10-01; before, the first full growth laid a
+road to Haldor and nothing showed, and a player finding another camp first left the road ending
+at an empty clearing). Once its road is laid, `Traders.Settle` does what the game's
+`RemoveUnplacedLocations` would, keeping the pinned camp: every other unplaced instance leaves
+`m_locationInstances` and the three location caches, so the game can only place the trader
+there (the trimmed list is what the world saves, `PrepareSave`). A `GetLocationIcons` postfix on
+the server lists the pinned camp before it is placed, and `SendLocationIcons(0L)` sends the list
+to every client, vanilla ones too. `Settle` also runs before each growth: the game may regenerate
+locations after an update. A trader placed elsewhere anyway (a road older than this) is still
+caught by `Planner.Vanished`: the pin is dropped, a road goes to the camp that is there, the old
+road stays.
+
+**`[Network] RevealTraders`** (on): off, no road leads to a trader, nothing is settled or
+revealed - for players who want to search for them, which fits camps that move.
 
 ## When it grows
 

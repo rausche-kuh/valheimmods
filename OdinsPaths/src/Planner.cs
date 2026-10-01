@@ -89,8 +89,8 @@ namespace OdinsPaths
         /// Every job due now, in order. Groups already pinned, unreachable, or missing from the
         /// world are left out; so is every boss after the second undefeated one. With everything
         /// set (a dev preview of the whole network), every boss of the list is due. A
-        /// trader is due from the start, its camps generated or not: the road leads the player to
-        /// the camp it chose, which then becomes the trader.
+        /// trader is due from the start, its camps generated or not, unless <c>RevealTraders</c> is
+        /// off: the road leads to the camp it chose, where the trader is then settled (<see cref="Traders"/>).
         /// </summary>
         public static List<Job> Due(Network network, bool everything = false)
         {
@@ -98,6 +98,7 @@ namespace OdinsPaths
             List<Boss> bosses = Progression();
             HashSet<string> central = Chosen(OdinsPathsPlugin.Central.Value, "FaderLocation, DN_Bossroom");
             HashSet<string> remote = Chosen(OdinsPathsPlugin.Remote.Value, "Hildir_camp, BogWitch_Camp");
+            List<string> traders = OdinsPathsPlugin.RevealTraders.Value ? Names(OdinsPathsPlugin.Traders.Value) : new List<string>();
             // Entries sharing a key (the mines and the Queen) are one step of the progression.
             HashSet<string> undefeated = new HashSet<string>();
             for (int b = 0; b < bosses.Count; b++)
@@ -119,7 +120,7 @@ namespace OdinsPaths
                     AddLocation(jobs, network, boss.Locations, boss.Count > 1 ? k + 1 : 0, boss.Count, reason, central, remote, boss.Side, boss.Near);
                 }
             }
-            foreach (string trader in Names(OdinsPathsPlugin.Traders.Value))
+            foreach (string trader in traders)
             {
                 if (!remote.Contains(trader))
                 {
@@ -141,7 +142,7 @@ namespace OdinsPaths
             }
             // The remote traders last, so that "far from the roads" is measured against as much of
             // the network as there is.
-            foreach (string trader in Names(OdinsPathsPlugin.Traders.Value))
+            foreach (string trader in traders)
             {
                 if (remote.Contains(trader))
                 {
@@ -230,6 +231,10 @@ namespace OdinsPaths
             if (write)
             {
                 network.Save();
+                if (result.Failure == null && Traders.Is(job.Name))
+                {
+                    Traders.Settle(network);
+                }
             }
             if (result.Failure == null)
             {
@@ -262,8 +267,8 @@ namespace OdinsPaths
             string name = number > 0 ? group + " #" + number : group;
             if (network.Pinned.TryGetValue(name, out Vector2 pinned) && Vanished(locations, pinned))
             {
-                // A trader's road led to a camp not generated yet, and the player found another
-                // first: the game dropped this one. The road stays; a new one goes to the trader.
+                // A trader's road led to a camp the game dropped: placed elsewhere before the road
+                // settled it (a road laid before 2026-10-01). The road stays; a new one goes to the trader.
                 network.Pinned.Remove(name);
             }
             if (network.Pinned.ContainsKey(name) || network.Unreachable.Contains(name) || network.Unreachable.Contains(group))

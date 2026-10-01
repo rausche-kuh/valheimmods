@@ -103,6 +103,7 @@ namespace OdinsPaths
         internal static ConfigEntry<string> Central;
         internal static ConfigEntry<string> Remote;
         internal static ConfigEntry<string> Traders;
+        internal static ConfigEntry<bool> RevealTraders;
         internal static ConfigEntry<string> CustomLocations;
         internal static ConfigEntry<string> BaseMarker;
         internal static ConfigEntry<float> BaseRadius;
@@ -169,7 +170,10 @@ namespace OdinsPaths
                 "and is laid after every other road due.");
             Traders = Config.Bind("Network", "Traders", "Vendor_BlackForest, Hildir_camp, BogWitch_Camp",
                 "Trader locations main roads lead to. The road goes to one of the trader's possible camps before any is " +
-                "generated, and the trader settles in the one a player reaches first.");
+                "generated, and the trader settles in that one.");
+            RevealTraders = Config.Bind("Network", "RevealTraders", true,
+                "Lay main roads to the traders and show their camps on the map as soon as the road is there. " +
+                "Off: no road leads to a trader, and players search for them as in the unmodded game.");
             CustomLocations = Config.Bind("Network", "CustomLocations", "",
                 "More locations for main roads, by prefab name, comma separated - another mod's too. Each " +
                 "gets one road, to its instance cheapest to reach.");

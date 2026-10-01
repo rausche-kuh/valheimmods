@@ -55,6 +55,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `src/Builder.cs` | Raises a blueprint: weathering, piles to the ground, spots, chests, spawners. |
 | `src/Docks.cs` | A harbour's dock: flush with the road, fitted to the shore. |
 | `src/Buildings.cs` | Old buildings at a harbour: by their door off the road, with a path to it, or joined to the dock. |
+| `src/Traders.cs` | A trader settled at its road's end: the other camps dropped, the icon on every map. |
 | `src/Relics.cs` | The furniture: game pieces copied to recover nothing, refuse the hammer. |
 | `src/Clearing.cs` | Removes trees, rocks and scenery from a path; the `SpawnZone` patch. |
 | `src/PathLayer.cs` | One road: search passes → trail → write → clear → landings; `LaySpurs`. |
@@ -75,7 +76,8 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
   outlives the mod and every client sees it. The mod's own data (queue, laid polylines) may
   vanish with the mod.
 - **Never over the player's work:** a vertex the player raised, lowered, paved or cultivated is
-  left alone.
+  left alone - meant for the terrain work already there, in bases. A player digging while the
+  server writes the same zone is not guarded against: the server wins.
 - **Heights for the search come from `WorldGenerator`**, which the search reads on a thread of its
   own, as the game's `HeightmapBuilder` does (its river cache is locked). Everything else the search
   touches is built on the main thread before it starts and only read after; Unity objects stay

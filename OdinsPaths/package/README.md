@@ -9,7 +9,8 @@ fulfilling Odins request?
 ## What it does
 
 - **Paths to the altars** — when the world loads and every time it sleeps, a trail is laid to
-  the next boss altar in the order the bosses are fought, and to the traders. It starts from the
+  the next boss altar in the order the bosses are fought, and to the traders, whose camps then
+  show on your map (or none, if you would rather search for them). It starts from the
   nearest point of the path network: the sacrificial stones where every Viking wakes, a base you have marked, or a path that is already there, so
   the trails grow into a network rather than a bundle of lines.
 - **Like a real path** — the trail follows the easiest ground and avoids climbing, so it winds
