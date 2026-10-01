@@ -22,7 +22,7 @@ speaks whatever language Valheim is set to. `assets/translations.csv` holds the 
 - **Where a token is translated depends on where it lands:**
   - `UITooltip.m_topic` / `m_text` and `Player.Message` translate what they are given when they
     show it, so those take a bare token and follow a language change by themselves.
-  - A label written straight onto a component does not (`NearbyChests.TextButton.SetLabel`
+  - A label written straight onto a component does not (`PanelButtons.TextButton.SetLabel`
     localizes on the way in and compares translated, so the caller may hand it the same token
     every frame).
   - A radial menu's `IRadialConfig.LocalizedName` is written onto a `TMP_Text` unchanged, despite
@@ -30,7 +30,7 @@ speaks whatever language Valheim is set to. `assets/translations.csv` holds the 
 - **A number or an item name goes in as `$1`, `$2`**, so word order stays the translator's to
   choose: `Localization.Localize("$omp_took", moved.ToString())`. The substitution happens *after*
   the lookup, so anything that is itself a token (`$item_wood`) has to be translated before it is
-  passed in — see `AddAll.HoverLine` and `QuickStack`'s favourite message.
+  passed in — see `StationRefill`'s hover line and `QuickStack`'s favourite message.
 - **Plurals are separate tokens** (`$omp_clear_favourite` / `$omp_clear_favourites`,
   `$omp_stacked_one_chest` / `$omp_stacked_chests`). The game has no plural rules, and a language
   that needs a third form can give both rows the same words.
@@ -51,7 +51,7 @@ speaks whatever language Valheim is set to. `assets/translations.csv` holds the 
   vocabulary to borrow, while a column the game itself left half empty gives nothing to match.
 - **A button's own label stays within about the English row's display width.** The layout is
   only ever checked in English, so a translation is the one thing that can break it unseen: a
-  `NearbyChests.TextButton` sizes itself to its label, and the two of them sit in the vanilla
+  `PanelButtons.TextButton` sizes itself to its label, and the two of them sit in the vanilla
   Take all and Stack all slots growing towards each other. Only labels are bound this way — the
   rows are marked `BUTTON` in the CSV's section comments. A tooltip wraps and a centre message
   has the screen's width, so both may run as long as they need. Where the literal phrase will
@@ -61,7 +61,7 @@ speaks whatever language Valheim is set to. `assets/translations.csv` holds the 
   eyeball it: `unicodedata.east_asian_width(c) in "WF"` is the test, and every shipped label is
   within +2 columns of its English row.
 - **A translated string that is cached rather than rebuilt every frame must be rebuilt when the
-  language changes.** `Translations.Revision` counts the loads; `NearbyChests` compares it
+  language changes.** `Translations.Revision` counts the loads; `ChestFavorites` compares it
   alongside the marks it described.
 
 ## Game facts

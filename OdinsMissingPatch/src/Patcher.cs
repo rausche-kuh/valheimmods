@@ -127,6 +127,30 @@ namespace OdinsMissingPatch
             return new Tweak[0];
         }
 
+        /// <summary>
+        /// Whether any tweak the shared patch class works for is on right now: what a shared
+        /// helper asks instead of listing its tweaks a second time beside its Serves.
+        /// </summary>
+        internal static bool AnyServedOn(Type patchClass)
+        {
+            foreach (PatchClass patch in classes)
+            {
+                if (patch.Type != patchClass)
+                {
+                    continue;
+                }
+                foreach (Tweak tweak in patch.Serves)
+                {
+                    if (tweak.On)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            return false;
+        }
+
         /// <summary>Whether switching the tweak on mid game can have to wait for a restart.</summary>
         internal static bool MayNeedRestart(Tweak tweak)
         {

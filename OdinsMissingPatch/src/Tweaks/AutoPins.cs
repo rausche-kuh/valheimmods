@@ -1,5 +1,4 @@
 using BepInEx.Configuration;
-using BepInEx.Logging;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -42,9 +41,6 @@ namespace OdinsMissingPatch
 
         private AutoPins() { }
 
-        private static readonly ManualLogSource Log =
-            BepInEx.Logging.Logger.CreateLogSource(OdinsMissingPatchPlugin.NAME);
-
         private const float SweepInterval = 3f;
 
         /// <summary>
@@ -79,14 +75,13 @@ namespace OdinsMissingPatch
         private ConfigEntry<PinType> dungeonIcon;
         private ConfigEntry<PinType> oreIcon;
         private ConfigEntry<PinType> placeIcon;
-        private ConfigEntry<string> placeList;
         private ConfigEntry<string> extraOre;
         private ConfigEntry<string> skipOre;
         private ConfigEntry<bool> showMessage;
         private ConfigEntry<MinedOut> minedOut;
         private ConfigEntry<bool> share;
 
-        // Parsed from placeList: prefab name -> the pin's name, or null for "the game's label".
+        // Parsed from PlaceList: prefab name -> the pin's name, or null for "the game's label".
         private Dictionary<string, string> placeNames = new Dictionary<string, string>();
 
         internal override string Section => "Auto Pins";
@@ -123,20 +118,23 @@ namespace OdinsMissingPatch
             dungeonIcon = config.Bind(Section, "DungeonIcon", PinType.Icon1, "Map icon of a dungeon pin." + icons);
             oreIcon = config.Bind(Section, "OreIcon", PinType.Icon3, "Map icon of an ore pin." + icons);
             placeIcon = config.Bind(Section, "PlaceIcon", PinType.Icon0, "Map icon of a place pin." + icons);
-            placeList = config.Bind(Section, "PlaceList", string.Join(", ", DefaultPlaces.Keys),
+            BindList(config, "PlaceList", string.Join(", ", DefaultPlaces.Keys),
                 "Comma separated location names to pin besides the ones found by themselves. A " +
                 "name may be followed by =$token to name the pin by a translation token, which " +
                 "also renames a place found by itself; a name the mod does not know is pinned under " +
                 "the game's own label for the place, or the location name when it has none. The dev " +
-                "build's omp_locations console command lists every location of the current game.");
-            extraOre = config.Bind(Section, "ExtraOre", "Softtissue",
+                "build's omp_locations console command lists every location of the current game.",
+                ParsePlaces);
+            extraOre = BindList(config, "ExtraOre", "Softtissue",
                 "Comma separated item names that count as ore besides what a smelter takes, the pin " +
                 "named after the item. Soft tissue, which the eitr refinery burns, comes from the " +
-                "giant remains of the Mistlands. Obsidian or BlackMarble could go here too.");
-            skipOre = config.Bind(Section, "SkipOre", "TinOre",
+                "giant remains of the Mistlands. Obsidian or BlackMarble could go here too.",
+                names => ForgetOre());
+            skipOre = BindList(config, "SkipOre", "TinOre",
                 "Comma separated item names that do not count as ore although a smelter takes them. " +
                 "Tin is left out by default: its deposits line every Black Forest shore and would " +
-                "carpet the map.");
+                "carpet the map.",
+                names => ForgetOre());
             minedOut = config.Bind(Section, "MinedOut", MinedOut.Tick,
                 "What happens to an ore pin once its deposit is mined out, by you or anyone, noticed " +
                 "when you come by: Tick crosses it off the way a click does, Remove takes it off the " +
@@ -148,22 +146,13 @@ namespace OdinsMissingPatch
                 "the pins they send, without a map table in between; on joining, ask everyone for " +
                 "theirs once. Only players with the mod take part, and each applies their own " +
                 "settings to what they get. Off, the pins travel on map tables only.");
-            placeList.SettingChanged += (sender, args) => ParsePlaces();
-            ParsePlaces();
-            extraOre.SettingChanged += (sender, args) => ForgetOre();
-            skipOre.SettingChanged += (sender, args) => ForgetOre();
         }
 
-        private void ParsePlaces()
+        private void ParsePlaces(List<string> entries)
         {
             var parsed = new Dictionary<string, string>();
-            foreach (string raw in placeList.Value.Split(','))
+            foreach (string entry in entries)
             {
-                string entry = raw.Trim();
-                if (entry.Length == 0)
-                {
-                    continue;
-                }
                 string name = entry;
                 string token = null;
                 int eq = entry.IndexOf('=');
@@ -174,7 +163,7 @@ namespace OdinsMissingPatch
                 }
                 if (name.Length == 0)
                 {
-                    Log.LogWarning(Section + ": '" + entry + "' has no location name and is ignored");
+                    OdinsMissingPatchPlugin.Log.LogWarning(Section + ": '" + entry + "' has no location name and is ignored");
                     continue;
                 }
                 if (string.IsNullOrEmpty(token))
@@ -542,7 +531,7 @@ namespace OdinsMissingPatch
                     }
                 }
             }
-            foreach (string name in ItemNames(Instance.extraOre.Value))
+            foreach (string name in Items(Instance.extraOre.Value))
             {
                 GameObject prefab = ObjectDB.instance != null ? ObjectDB.instance.GetItemPrefab(name) : null;
                 ItemDrop item = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
@@ -552,26 +541,14 @@ namespace OdinsMissingPatch
                 }
                 else
                 {
-                    Log.LogWarning(Instance.Section + ": ExtraOre names '" + name + "', which is no item");
+                    OdinsMissingPatchPlugin.Log.LogWarning(Instance.Section + ": ExtraOre names '" + name + "', which is no item");
                 }
             }
-            foreach (string name in ItemNames(Instance.skipOre.Value))
+            foreach (string name in Items(Instance.skipOre.Value))
             {
                 oreMetals.Remove(name);
             }
             return oreMetals;
-        }
-
-        private static IEnumerable<string> ItemNames(string list)
-        {
-            foreach (string raw in list.Split(','))
-            {
-                string name = raw.Trim();
-                if (name.Length > 0)
-                {
-                    yield return name;
-                }
-            }
         }
 
         /// <summary>ExtraOre or SkipOre changed: what counts as ore is worked out again on the next strike.</summary>
@@ -650,8 +627,8 @@ namespace OdinsMissingPatch
         /// </summary>
         private const float DepositRadius = 12f;
 
-        /// <summary>Ore pins found without a deposit on the last sweep; a second sweep in a row decides.</summary>
-        private static readonly HashSet<Minimap.PinData> Missing = new HashSet<Minimap.PinData>();
+        /// <summary>Ore pins found without a deposit; two sweeps in a row decide.</summary>
+        private static readonly PinSweep DepositSweep = new PinSweep();
 
         /// <summary>Pins this session ticked, so one the player unticks again is left alone.</summary>
         private static readonly HashSet<Minimap.PinData> Ticked = new HashSet<Minimap.PinData>();
@@ -667,40 +644,23 @@ namespace OdinsMissingPatch
         /// </summary>
         private void SweepMinedOut(Minimap map, Vector3 origin)
         {
-            if (ZNetScene.instance == null)
-            {
-                return;
-            }
             bool remove = minedOut.Value == MinedOut.Remove;
-            for (int i = map.m_pins.Count - 1; i >= 0; i--)
-            {
-                Minimap.PinData pin = map.m_pins[i];
-                if (!UniversalPins.TryGetCategory(pin, out Category category) || category != Category.Ore
-                    || (!remove && (pin.m_checked || Ticked.Contains(pin)))
-                    || (pin.m_pos - origin).sqrMagnitude > MinedOutCheckRange * MinedOutCheckRange)
+            DepositSweep.Run(map, origin, MinedOutCheckRange,
+                pin => UniversalPins.TryGetCategory(pin, out Category category) && category == Category.Ore
+                    && (remove || (!pin.m_checked && !Ticked.Contains(pin))),
+                DepositAt,
+                pin =>
                 {
-                    continue;
-                }
-                if (!ZNetScene.instance.IsAreaReady(pin.m_pos) || DepositAt(pin.m_pos))
-                {
-                    Missing.Remove(pin);
-                    continue;
-                }
-                if (Missing.Add(pin))
-                {
-                    continue;
-                }
-                Missing.Remove(pin);
-                if (remove)
-                {
-                    UniversalPins.Discard(map, pin, category);
-                }
-                else
-                {
-                    pin.m_checked = true;
-                    Ticked.Add(pin);
-                }
-            }
+                    if (remove)
+                    {
+                        UniversalPins.Discard(map, pin, Category.Ore);
+                    }
+                    else
+                    {
+                        pin.m_checked = true;
+                        Ticked.Add(pin);
+                    }
+                });
         }
 
         /// <summary>Whether any rock that drops ore is left within DepositRadius of pos.</summary>

@@ -1,5 +1,4 @@
 using BepInEx.Configuration;
-using BepInEx.Logging;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -24,17 +23,12 @@ namespace OdinsMissingPatch
 
         private KeepGearOnDeath() { }
 
-        private static readonly ManualLogSource Log =
-            BepInEx.Logging.Logger.CreateLogSource(OdinsMissingPatchPlugin.NAME);
-
         private const string DefaultKeepTypes =
             "OneHandedWeapon, TwoHandedWeapon, TwoHandedWeaponLeft, Bow, Shield, Torch, Tool, " +
             "Helmet, Chest, Legs, Shoulder, Hands, Utility, Trinket, Ammo, AmmoNonEquipable, " +
             "Consumable";
 
-        private ConfigEntry<string> keepTypes;
-
-        // Parsed from keepTypes; re-read whenever the setting changes, since parsing a comma
+        // Parsed from KeepTypes; re-read whenever the setting changes, since parsing a comma
         // separated list on every item of every death would be silly.
         private HashSet<ItemDrop.ItemData.ItemType> kept = new HashSet<ItemDrop.ItemData.ItemType>();
 
@@ -54,30 +48,23 @@ namespace OdinsMissingPatch
         {
             string types = string.Join(", ", Enum.GetNames(typeof(ItemDrop.ItemData.ItemType))
                 .Where(name => name != nameof(ItemDrop.ItemData.ItemType.None)).ToArray());
-            keepTypes = config.Bind(Section, "KeepTypes", DefaultKeepTypes,
+            BindList(config, "KeepTypes", DefaultKeepTypes,
                 "Comma separated item types that stay with you when you die. Everything else " +
-                "goes to the grave. The types the game knows: " + types + ".");
-            keepTypes.SettingChanged += (sender, args) => Parse();
-            Parse();
+                "goes to the grave. The types the game knows: " + types + ".", Parse);
         }
 
-        private void Parse()
+        private void Parse(List<string> names)
         {
             var parsed = new HashSet<ItemDrop.ItemData.ItemType>();
-            foreach (string raw in keepTypes.Value.Split(','))
+            foreach (string name in names)
             {
-                string name = raw.Trim();
-                if (name.Length == 0)
-                {
-                    continue;
-                }
                 try
                 {
                     parsed.Add((ItemDrop.ItemData.ItemType)Enum.Parse(typeof(ItemDrop.ItemData.ItemType), name, ignoreCase: true));
                 }
                 catch (ArgumentException)
                 {
-                    Log.LogWarning(Section + ": '" + name + "' is not an item type and is ignored");
+                    OdinsMissingPatchPlugin.Log.LogWarning(Section + ": '" + name + "' is not an item type and is ignored");
                 }
             }
             kept = parsed;

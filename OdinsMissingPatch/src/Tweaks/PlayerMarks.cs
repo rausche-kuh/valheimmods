@@ -40,14 +40,14 @@ namespace OdinsMissingPatch
         protected override void Bind(ConfigFile config)
         {
             hideWithin = config.Bind(Section, "HideWithin", 10f,
-                "Metres within which a player never gets a dot, seen or not.");
+                "Metres within which a player never gets a mark, seen or not.");
             showFrom = config.Bind(Section, "ShowFrom", 50f,
-                "Metres from which a player always gets a dot. Between HideWithin and this, only a " +
+                "Metres from which a player always gets a mark. Between HideWithin and this, only a " +
                 "player hidden behind terrain or a building gets one.");
             farFrom = config.Bind(Section, "FarFrom", 400f,
-                "Metres at which the dot has turned FarMarkColor and shrunk to its smallest size.");
+                "Metres at which the mark has turned FarEdgeColor and shrunk to its smallest size.");
             hideBeyond = config.Bind(Section, "HideBeyond", 0f,
-                "Metres beyond which a player gets no dot at all. 0 shows every player, however far.");
+                "Metres beyond which a player gets no mark at all. 0 shows every player, however far.");
             // The colour keys were renamed twice (NearColor / FarColor, then MarkColor /
             // FarMarkColor) as the look changed, so a config written earlier picks up the new look.
             size = config.Bind(Section, "MarkSize", 16f, new ConfigDescription(
@@ -61,7 +61,7 @@ namespace OdinsMissingPatch
             farEdgeColor = config.Bind(Section, "FarEdgeColor", new Color(0.553f, 0.776f, 0.894f, 1f),
                 "Colour at the edge of the mark for a player at FarFrom and beyond.");
             offScreen = config.Bind(Section, "ShowOffScreen", true,
-                "Keep the dot of a player off screen or behind you on the screen's edge, in their direction.");
+                "Keep the mark of a player off screen or behind you on the screen's edge, in their direction.");
             sparks = config.Bind(Section, "Sparks", true,
                 "Little sparks drift outward from every mark, in its edge colour.");
         }

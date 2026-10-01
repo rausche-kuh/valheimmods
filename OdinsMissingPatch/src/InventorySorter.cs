@@ -83,8 +83,7 @@ namespace OdinsMissingPatch
             List<ItemDrop.ItemData> merged = new List<ItemDrop.ItemData>(sorted.Count);
             foreach (ItemDrop.ItemData item in sorted)
             {
-                int max = item.m_shared.m_maxStackSize;
-                if (max > 1)
+                if (item.m_shared.m_maxStackSize > 1)
                 {
                     foreach (ItemDrop.ItemData target in merged)
                     {
@@ -92,11 +91,11 @@ namespace OdinsMissingPatch
                         {
                             break;
                         }
-                        if (target.m_stack >= max || !SameStack(target, item))
+                        if (!Merges(target, item))
                         {
                             continue;
                         }
-                        int move = Math.Min(max - target.m_stack, item.m_stack);
+                        int move = Math.Min(target.m_shared.m_maxStackSize - target.m_stack, item.m_stack);
                         target.m_stack += move;
                         item.m_stack -= move;
                     }
@@ -114,9 +113,20 @@ namespace OdinsMissingPatch
         }
 
         /// <summary>
+        /// Whether units of <paramref name="item"/> may join <paramref name="stack"/>: the same
+        /// kind of stack and room left under its cap. The one merge rule of the sort and of the
+        /// chest panel's Fill your stacks.
+        /// </summary>
+        internal static bool Merges(ItemDrop.ItemData stack, ItemDrop.ItemData item)
+        {
+            return stack.m_stack < stack.m_shared.m_maxStackSize && SameStack(stack, item);
+        }
+
+        /// <summary>
         /// What the game matches when it tops a stack up (name, quality, world level, cheated),
-        /// plus the variant and the custom data, so a stack another mod has tagged, or a
-        /// favourite, never swallows a plain one.
+        /// plus the variant and the custom data, so a stack another mod has tagged never swallows
+        /// a plain one. The favourite mark is left out: it belongs to the stack in the backpack,
+        /// not to the item, so a favourite is still topped up from a chest.
         /// </summary>
         private static bool SameStack(ItemDrop.ItemData a, ItemDrop.ItemData b)
         {
@@ -125,13 +135,16 @@ namespace OdinsMissingPatch
             {
                 return false;
             }
-            if (a.m_customData.Count != b.m_customData.Count)
+            return Covers(a.m_customData, b.m_customData) && Covers(b.m_customData, a.m_customData);
+        }
+
+        /// <summary>Whether every custom entry of <paramref name="a"/> but the favourite mark is in <paramref name="b"/>.</summary>
+        private static bool Covers(Dictionary<string, string> a, Dictionary<string, string> b)
+        {
+            foreach (KeyValuePair<string, string> pair in a)
             {
-                return false;
-            }
-            foreach (KeyValuePair<string, string> pair in a.m_customData)
-            {
-                if (!b.m_customData.TryGetValue(pair.Key, out string value) || value != pair.Value)
+                if (pair.Key != QuickStack.FavoriteKey
+                    && (!b.TryGetValue(pair.Key, out string value) || value != pair.Value))
                 {
                     return false;
                 }

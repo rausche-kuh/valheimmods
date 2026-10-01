@@ -30,7 +30,9 @@ namespace OdinsMissingPatch
         protected abstract string Summary { get; }
 
         /// <summary>Binds the tweak's own settings. Enabled is already bound when this runs.</summary>
-        protected abstract void Bind(ConfigFile config);
+        protected virtual void Bind(ConfigFile config)
+        {
+        }
 
         /// <summary>
         /// Switched on and patched. False until <see cref="Setup"/> has run and the patches are in,
@@ -72,6 +74,35 @@ namespace OdinsMissingPatch
         {
             return config.Bind(Section, key, value, new ConfigDescription(
                 description, new AcceptableValueRange<float>(MinMultiplier, MaxMultiplier)));
+        }
+
+        /// <summary>
+        /// A comma separated list setting. <paramref name="apply"/> gets the trimmed, non-empty
+        /// items once now and again whenever the entry changes, so a caller parses into its own
+        /// set there rather than on every use.
+        /// </summary>
+        protected ConfigEntry<string> BindList(ConfigFile config, string key, string value, string description,
+            Action<List<string>> apply)
+        {
+            ConfigEntry<string> entry = config.Bind(Section, key, value, description);
+            entry.SettingChanged += (sender, args) => apply(Items(entry.Value));
+            apply(Items(entry.Value));
+            return entry;
+        }
+
+        /// <summary>The trimmed, non-empty items of a comma separated list.</summary>
+        internal static List<string> Items(string list)
+        {
+            List<string> items = new List<string>();
+            foreach (string raw in (list ?? "").Split(','))
+            {
+                string item = raw.Trim();
+                if (item.Length > 0)
+                {
+                    items.Add(item);
+                }
+            }
+            return items;
         }
 
         /// <summary>

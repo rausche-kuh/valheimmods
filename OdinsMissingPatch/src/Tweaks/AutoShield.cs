@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using HarmonyLib;
 
 namespace OdinsMissingPatch
@@ -31,12 +30,6 @@ namespace OdinsMissingPatch
         protected override string Summary =>
             "Equipping a one handed weapon raises a shield with it, if your off hand is empty " +
             "and you carry one.";
-
-        protected override void Bind(ConfigFile config)
-        {
-            // Nothing beyond the Enabled switch: both patches ask it as the weapon is equipped,
-            // so switching the tweak off leaves the very next weapon bare handed.
-        }
 
         /// <summary>
         /// The shield to raise: a favourite before anything on the hotbar, the hotbar before the

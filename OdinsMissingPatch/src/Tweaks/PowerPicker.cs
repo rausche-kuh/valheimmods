@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using HarmonyLib;
 using System.Collections.Generic;
 using UnityEngine;
@@ -23,20 +22,11 @@ namespace OdinsMissingPatch
 
         private PowerPicker() { }
 
-        /// <summary>The tint of the icon of the power you are already carrying.</summary>
-        private static readonly Color Gold = new Color(1f, 0.8f, 0.3f, 1f);
-
         internal override string Section => "Power Picker";
 
         protected override string Summary =>
             "A Forsaken powers category in the radial menu, holding every boss power you have " +
             "unlocked; picking one makes it yours, without the walk back to the stones.";
-
-        protected override void Bind(ConfigFile config)
-        {
-            // Nothing beyond the Enabled switch: the radial is built afresh every time it opens
-            // and asks the tweak then, so switching it off simply drops the category again.
-        }
 
         // ---- What is unlocked ------------------------------------------------------------------
 
@@ -248,7 +238,7 @@ namespace OdinsMissingPatch
                 {
                     icon.gameObject.SetActive(power.m_icon != null);
                     icon.sprite = power.m_icon;
-                    icon.color = active ? Gold : Color.white;
+                    icon.color = active ? Palette.Gold : Color.white;
                 }
             }
         }

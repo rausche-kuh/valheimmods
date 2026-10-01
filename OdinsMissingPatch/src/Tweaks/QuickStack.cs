@@ -10,7 +10,8 @@ namespace OdinsMissingPatch
     /// One key stacks your inventory away into the chests around you: every stack you carry goes
     /// to the nearest chest that already holds that item, topping up its stacks before taking a
     /// free slot. Each chest that took something pulses and shows how many it took; a message
-    /// sums it up. Equipped items and the hotbar stay (the hotbar is a switch), and so does
+    /// sums it up. Equipped items and the hotbar stay (the hotbar is the shared KeepHotbar
+    /// switch), and so does
     /// anything marked as a favourite: a modifier-click on an item in the inventory draws a golden
     /// border around it, and quick stacking leaves it alone.
     ///
@@ -28,19 +29,16 @@ namespace OdinsMissingPatch
 
         private QuickStack() { }
 
-        private const string FavoriteKey = "OMP_Favorite";
-        private static readonly Color Gold = new Color(1f, 0.8f, 0.3f, 1f);
+        internal const string FavoriteKey = "OMP_Favorite";
 
         private ConfigEntry<KeyboardShortcut> hotkey;
         private ConfigEntry<KeyboardShortcut> favoriteModifier;
-        private ConfigEntry<float> range;
-        private ConfigEntry<bool> includeHotbar;
 
         internal override string Section => "Quick Stack";
 
         protected override string Summary =>
             "A hotkey stacks your inventory away into the chests around you that already hold " +
-            "each item. Equipped items, favourites and (unless switched on below) the hotbar stay.";
+            "each item. Equipped items, favourites and (unless General.KeepHotbar is off) the hotbar stay.";
 
         protected override void Bind(ConfigFile config)
         {
@@ -50,11 +48,6 @@ namespace OdinsMissingPatch
             favoriteModifier = config.Bind(Section, "FavoriteModifier", new KeyboardShortcut(KeyCode.LeftAlt),
                 "Held while clicking an item in the inventory to mark it as a favourite, or to " +
                 "clear the mark. Favourites are never quick stacked.");
-            range = config.Bind(Section, "Range", 20f, new ConfigDescription(
-                "How far from you a chest may stand, in metres, to be stacked into.",
-                new AcceptableValueRange<float>(1f, 100f)));
-            includeHotbar = config.Bind(Section, "IncludeHotbar", false,
-                "Whether the hotbar row is stacked away too. Off keeps your tools, food and arrows.");
         }
 
         // ---- The hotkey ----------------------------------------------------------------------
@@ -96,7 +89,7 @@ namespace OdinsMissingPatch
         internal void Stack(Player player)
         {
             Inventory backpack = player.GetInventory();
-            List<Container> chests = new List<Container>(NearbyChests.Find(player.transform.position, range.Value));
+            List<Container> chests = new List<Container>(NearbyChests.Find(player.transform.position));
             if (chests.Count == 0)
             {
                 player.Message(MessageHud.MessageType.Center, "$omp_no_chest");
@@ -107,11 +100,7 @@ namespace OdinsMissingPatch
             int moved = 0;
             foreach (ItemDrop.ItemData item in new List<ItemDrop.ItemData>(backpack.GetAllItems()))
             {
-                if (item.m_equipped || player.IsItemEquiped(item) || IsFavorite(item))
-                {
-                    continue;
-                }
-                if (!includeHotbar.Value && item.m_gridPos.y == 0)
+                if (!Stash.MayLeave(player, item))
                 {
                     continue;
                 }
@@ -130,28 +119,17 @@ namespace OdinsMissingPatch
                     {
                         continue;
                     }
-                    // AddItem logs an error, rather than declining, when nothing fits.
-                    if (!inventory.HaveEmptySlot() && inventory.FindFreeStackSpace(name, item.m_worldLevel) <= 0)
-                    {
-                        continue;
-                    }
                     int before = item.m_stack;
-                    if (inventory.AddItem(item))
-                    {
-                        // Everything went: merged into the chest's stacks, or the stack itself
-                        // now sits in a free slot there. Either way it leaves the backpack.
-                        backpack.RemoveItem(item);
-                        moved += before;
-                        Add(stashed, chest, before);
-                        break;
-                    }
-                    // Part went into the chest's stacks and the item is still ours, smaller.
-                    int part = before - item.m_stack;
+                    int part = Stash.Move(item, backpack, inventory);
                     if (part > 0)
                     {
-                        backpack.Changed();
                         moved += part;
                         Add(stashed, chest, part);
+                    }
+                    if (part == before)
+                    {
+                        // Everything went, and the item is no longer the backpack's.
+                        break;
                     }
                 }
             }
@@ -171,13 +149,9 @@ namespace OdinsMissingPatch
                 : "$omp_stacked_none");
         }
 
-        /// <summary>
-        /// Whether a chest is one this kind of item may go to: it already holds one, or it has
-        /// been marked for it, which is the same thing said in advance.
-        /// </summary>
         private static bool Takes(Container chest, Inventory inventory, string name)
         {
-            return inventory.ContainsItemByName(name) || ChestFavorites.Accepts(chest, name);
+            return Stash.Takes(inventory, ChestFavorites.Marks(chest), name);
         }
 
         /// <summary>
@@ -212,9 +186,10 @@ namespace OdinsMissingPatch
 
         // ---- Favourites ----------------------------------------------------------------------
 
+        /// <summary>A favourite, while quick stacking is on: switched off, the marks mean nothing anywhere.</summary>
         internal static bool IsFavorite(ItemDrop.ItemData item)
         {
-            return item.m_customData.TryGetValue(FavoriteKey, out string value) && value == "1";
+            return Instance.On && item.m_customData.TryGetValue(FavoriteKey, out string value) && value == "1";
         }
 
         private static void SetFavorite(ItemDrop.ItemData item, bool favorite)
@@ -437,7 +412,7 @@ namespace OdinsMissingPatch
                 rect.sizeDelta = size;
                 rect.anchoredPosition = Vector2.zero;
                 Image image = bar.AddComponent<Image>();
-                image.color = Gold;
+                image.color = Palette.Gold;
                 image.raycastTarget = false;
             }
         }

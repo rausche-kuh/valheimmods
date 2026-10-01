@@ -1,10 +1,7 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.UI;
 
 namespace OdinsMissingPatch
 {
@@ -13,10 +10,8 @@ namespace OdinsMissingPatch
     /// up loaded is put on a list, and a query walks that list instead of the physics world. A
     /// chest is in reach when a player placed it, nobody has it open, the local player may open
     /// it (privacy setting, ward) and it has not been switched off with the button in its panel.
-    /// Shared by NearbyCrafting, QuickStack, NearbyFuel and AddAll; owns the switch-off button
-    /// and the hover text line that goes with it, since the flag serves all four, and beside it
-    /// the button that clears a chest's favourites (<see cref="ChestFavorites"/>), which is the
-    /// other thing the chest panel says about a chest rather than about what is in it.
+    /// Shared by NearbyCrafting, QuickStack and StationRefill; owns the switch-off button
+    /// and the hover text line that goes with it, since the flag serves all of them.
     ///
     /// It also owns the reach: while a tweak has opened it, the three inventory methods the
     /// game's own actions go through (count, have, remove by name) treat the chests around the
@@ -40,9 +35,13 @@ namespace OdinsMissingPatch
             public bool Tombstone;
         }
 
-        internal static bool AnyTweakOn =>
-            NearbyCrafting.Instance.On || QuickStack.Instance.On || NearbyFuel.Instance.On
-            || AddAll.Instance.On;
+        internal static bool AnyTweakOn => Patcher.AnyServedOn(typeof(Register));
+
+        /// <summary>Every chest in reach within the shared chest range of <paramref name="origin"/>; see the other overload.</summary>
+        internal static List<Container> Find(Vector3 origin)
+        {
+            return Find(origin, SharedSettings.ChestRange.Value);
+        }
 
         /// <summary>
         /// Every chest in reach within <paramref name="radius"/> of <paramref name="origin"/>,
@@ -205,32 +204,48 @@ namespace OdinsMissingPatch
 
         // ---- The reach: the backpack widened to the chests around the player ---------------
 
-        /// <summary>One entry per open reach, its range; the innermost, i.e. the last, is in force.</summary>
-        private static readonly List<float> Reaches = new List<float>();
+        /// <summary>How many reaches are open; they nest, and the chests count while any is.</summary>
+        private static int reachDepth;
 
         /// <summary>
-        /// Opens the reach for the game action about to run, at <paramref name="range"/> metres
-        /// around the player. Pair with <see cref="LeaveReach"/> in a finalizer, so it closes
-        /// whether or not the action throws. Reaches do nest - Add all draws up its plan inside
-        /// the scope NearbyFuel opened around the same Use - so the innermost range wins while it
-        /// is open and the one around it is back in force once it closes.
+        /// Opens the reach for the game action about to run, when <paramref name="tweak"/> is on
+        /// and <paramref name="user"/> is the local player; true when it did. Pair with
+        /// <see cref="LeaveReach"/> in a finalizer, so it closes whether or not the action throws.
         /// </summary>
-        internal static void EnterReach(float range)
+        internal static bool EnterReach(Tweak tweak, Humanoid user)
         {
-            Reaches.Add(range);
+            if (!tweak.On || user == null || user != Player.m_localPlayer)
+            {
+                return false;
+            }
+            reachDepth++;
+            return true;
         }
 
-        internal static void LeaveReach()
+        internal static void LeaveReach(bool entered)
         {
-            if (Reaches.Count > 0)
+            if (entered && reachDepth > 0)
             {
-                Reaches.RemoveAt(Reaches.Count - 1);
+                reachDepth--;
             }
         }
 
-        private static bool InReach => Reaches.Count > 0;
+        /// <summary><see cref="EnterReach"/> and <see cref="LeaveReach"/> for a using block.</summary>
+        internal readonly struct Scope : IDisposable
+        {
+            private readonly bool entered;
 
-        private static float ReachRange => Reaches[Reaches.Count - 1];
+            internal Scope(Tweak tweak, Humanoid user)
+            {
+                entered = EnterReach(tweak, user);
+            }
+
+            public void Dispose() => LeaveReach(entered);
+        }
+
+        private static bool InReach => reachDepth > 0;
+
+        private static float ReachRange => SharedSettings.ChestRange.Value;
 
         private static bool IsBackpack(Inventory inventory)
         {
@@ -239,7 +254,7 @@ namespace OdinsMissingPatch
         }
 
         [HarmonyPatch(typeof(Inventory), nameof(Inventory.CountItems))]
-        [Serves(typeof(NearbyCrafting), typeof(NearbyFuel), typeof(AddAll))]
+        [Serves(typeof(NearbyCrafting), typeof(StationRefill))]
         private static class CountChests
         {
             private static void Postfix(Inventory __instance, string name, int quality, bool matchWorldLevel, ref int __result)
@@ -253,7 +268,7 @@ namespace OdinsMissingPatch
         }
 
         [HarmonyPatch(typeof(Inventory), nameof(Inventory.HaveItem), new[] { typeof(string), typeof(bool) })]
-        [Serves(typeof(NearbyCrafting), typeof(NearbyFuel), typeof(AddAll))]
+        [Serves(typeof(NearbyCrafting), typeof(StationRefill))]
         private static class HaveInChests
         {
             private static void Postfix(Inventory __instance, string name, bool matchWorldLevel, ref bool __result)
@@ -272,7 +287,7 @@ namespace OdinsMissingPatch
         /// back through this prefix and pass straight through, not being the backpack.
         /// </summary>
         [HarmonyPatch(typeof(Inventory), nameof(Inventory.RemoveItem), new[] { typeof(string), typeof(int), typeof(int), typeof(bool) })]
-        [Serves(typeof(NearbyCrafting), typeof(NearbyFuel), typeof(AddAll))]
+        [Serves(typeof(NearbyCrafting), typeof(StationRefill))]
         private static class TakeFromChests
         {
             private static void Prefix(Inventory __instance, string name, ref int amount, int itemQuality, bool worldLevelBased)
@@ -399,7 +414,7 @@ namespace OdinsMissingPatch
         /// rather than on every query.
         /// </summary>
         [HarmonyPatch(typeof(Container), nameof(Container.Awake))]
-        [Serves(typeof(QuickStack), typeof(AddAll), typeof(NearbyFuel), typeof(NearbyCrafting))]
+        [Serves(typeof(QuickStack), typeof(StationRefill), typeof(NearbyCrafting))]
         [LoadHook]
         private static class Register
         {
@@ -419,325 +434,55 @@ namespace OdinsMissingPatch
         }
 
         [HarmonyPatch(typeof(Container), nameof(Container.GetHoverText))]
-        [Serves(typeof(QuickStack), typeof(AddAll), typeof(NearbyFuel), typeof(NearbyCrafting), Optional = true)]
+        [Serves(typeof(QuickStack), typeof(StationRefill), typeof(NearbyCrafting), Optional = true)]
         private static class HoverText
         {
+            /// <summary>
+            /// Harmony runs this as it patches the class, which is when one of the nearby tweaks
+            /// goes on: the moment the switch in the chest panel is needed, handed over here.
+            /// </summary>
+            private static void Prepare()
+            {
+                PanelButtons.Add(NearbyUse, PanelButtons.Spot.TakeAll, ShowsNearbyUse, RefreshNearbyUse);
+            }
+
             private static void Postfix(Container __instance, ref string __result)
             {
                 if (AnyTweakOn && IsExcluded(__instance))
                 {
-                    __result += "\n<color=#a0a0a0>Nearby use: off</color>";
+                    __result += "\n<color=#a0a0a0>" + Localization.instance.Localize("$omp_nearby_off") + "</color>";
                 }
             }
         }
 
         /// <summary>
-        /// The two text buttons in the chest panel: the switch that takes a chest out of (and
-        /// back into) nearby use, and, while the chest has any, the one that clears the
-        /// favourites it was marked with. Both are copies of the panel's own Take all button, so
-        /// they inherit the look, and both are widened to their label plus a margin either side,
-        /// since the labels outgrow Take all's.
-        ///
-        /// While ChestButtons has the game's own two hidden they stand in their spots, the top
-        /// left and the top right of the panel - the only free width that band has, the chest's
-        /// name being centred between them. Otherwise the band is full (Take all, the name,
-        /// Stack all) and they go beside the panel from its top edge down, where ChestButtons'
-        /// column would start. The switch shows on a chest a player placed while any of the four
-        /// nearby tweaks is on, the
-        /// clear button while the chest's favourites mean anything and the chest carries some.
+        /// The switch in the chest panel that takes a chest out of (and back into) nearby use: a
+        /// text button (see <see cref="PanelButtons.TextButton"/>), in the spot of the game's
+        /// Take all while that is hidden. It shows on a chest a player placed while any of the
+        /// nearby tweaks is on.
         /// </summary>
-        [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.UpdateContainer))]
-        [Serves(typeof(QuickStack), typeof(AddAll), typeof(NearbyFuel), typeof(NearbyCrafting), typeof(ChestButtons), Optional = true)]
-        private static class PanelButton
+        private static readonly PanelButtons.TextButton NearbyUse = new PanelButtons.TextButton("OMP_NearbyUse", Toggle);
+
+        private static bool ShowsNearbyUse(InventoryGui gui)
         {
-            private static readonly TextButton NearbyUse = new TextButton("OMP_NearbyUse", Toggle);
-
-            private static readonly TextButton ClearFavorites =
-                new TextButton("OMP_ClearFavorites", ClearFavorited);
-
-            /// <summary>The marks, and the language, the count and the tooltip below were written for.</summary>
-            private static string favorites = "";
-            private static int revision = -1;
-            private static int favoritesCount;
-            private static string favoritesTooltip = "";
-
-            private static void Postfix(InventoryGui __instance)
-            {
-                // Leave both buttons where they are while the screen fades out, as ChestButtons
-                // does - see PanelButtons.Closing.
-                if (PanelButtons.Closing(__instance))
-                {
-                    return;
-                }
-                Container chest = __instance.m_currentContainer;
-                bool panel = chest != null && __instance.m_container.gameObject.activeSelf;
-                int slot = 0;
-                if (panel && AnyTweakOn && Eligible(chest) && NearbyUse.Show(__instance))
-                {
-                    NearbyUse.SetLabel(IsExcluded(chest) ? "$omp_nearby_off" : "$omp_nearby_on");
-                    NearbyUse.SetTooltip("$omp_nearby_topic", "$omp_nearby_tip");
-                    // While the game's Take all is hidden its spot is free, and that is where the
-                    // switch goes; the column slot is then still free for the other button.
-                    Button spot = ChestButtons.HidesVanilla ? __instance.m_takeAllButton : null;
-                    NearbyUse.Place(__instance, spot, keepLeft: true, slot: slot);
-                    if (spot == null)
-                    {
-                        slot++;
-                    }
-                }
-                else
-                {
-                    NearbyUse.Hide();
-                }
-                string marks = panel ? ChestFavorites.Marks(chest) : "";
-                if (ChestFavorites.Used && marks.Length > 0 && ClearFavorites.Show(__instance))
-                {
-                    Describe(chest, marks);
-                    ClearFavorites.SetLabel(
-                        favoritesCount == 1 ? "$omp_clear_favourite" : "$omp_clear_favourites",
-                        favoritesCount.ToString());
-                    ClearFavorites.SetTooltip("$omp_favourites_topic", favoritesTooltip);
-                    Button spot = ChestButtons.HidesVanilla ? __instance.m_stackAllButton : null;
-                    ClearFavorites.Place(__instance, spot, keepLeft: false, slot: slot);
-                }
-                else
-                {
-                    ClearFavorites.Hide();
-                }
-            }
-
-            /// <summary>
-            /// Counts a chest's marks and writes the tooltip for them, and only when they have
-            /// changed: this runs on every frame the panel is up, and naming the items means
-            /// splitting the list and localizing each one. A language change counts as a change,
-            /// since the names in the tooltip were translated when it was written.
-            /// </summary>
-            private static void Describe(Container chest, string marks)
-            {
-                if (marks == favorites && revision == Translations.Revision)
-                {
-                    return;
-                }
-                favorites = marks;
-                revision = Translations.Revision;
-                favoritesCount = ChestFavorites.Names(chest).Count;
-                favoritesTooltip = "$omp_favourites_tip_head\n"
-                    + ChestFavorites.Describe(chest)
-                    + "\n\n$omp_favourites_tip_foot";
-            }
-
-            private static Container Open()
-            {
-                InventoryGui gui = InventoryGui.instance;
-                return gui != null ? gui.m_currentContainer : null;
-            }
-
-            private static void Toggle()
-            {
-                Container chest = Open();
-                if (chest != null)
-                {
-                    SetExcluded(chest, !IsExcluded(chest));
-                }
-            }
-
-            private static void ClearFavorited()
-            {
-                Container chest = Open();
-                if (chest == null)
-                {
-                    return;
-                }
-                ChestFavorites.Clear(chest);
-                Player player = Player.m_localPlayer;
-                if (player != null)
-                {
-                    player.Message(MessageHud.MessageType.Center, "$omp_favourites_cleared");
-                }
-            }
+            Container chest = gui.m_currentContainer;
+            return chest != null && gui.m_container != null && gui.m_container.gameObject.activeSelf
+                && AnyTweakOn && Eligible(chest);
         }
 
-        /// <summary>
-        /// A copy of the chest panel's Take all button that keeps its label instead of trading it
-        /// for an icon the way <see cref="PanelButtons"/> does: the game's skin, hover tint and
-        /// click sound, with words of our own and a width cut to fit them. It is built the first
-        /// time it is shown and kept from then on, and placed on every frame the panel refreshes,
-        /// since where it belongs follows ChestButtons' switch and what it says follows the chest.
-        /// </summary>
-        private sealed class TextButton
+        private static void RefreshNearbyUse(InventoryGui gui)
         {
-            /// <summary>The room between the label and each end of the button, in UI pixels.</summary>
-            private const float Margin = 16f;
+            NearbyUse.SetLabel(IsExcluded(gui.m_currentContainer) ? "$omp_nearby_off" : "$omp_nearby_on");
+            NearbyUse.SetTooltip("$omp_nearby_topic", "$omp_nearby_tip");
+        }
 
-            private readonly string name;
-            private readonly UnityAction onClick;
-
-            private Button button;
-            private UITooltip tip;
-            private string label;
-            private string tooltip;
-            private Component labelText;
-            private PropertyInfo labelWidth;
-
-            internal TextButton(string name, UnityAction onClick)
+        private static void Toggle()
+        {
+            InventoryGui gui = InventoryGui.instance;
+            Container chest = gui != null ? gui.m_currentContainer : null;
+            if (chest != null)
             {
-                this.name = name;
-                this.onClick = onClick;
-            }
-
-            /// <summary>
-            /// Shows the button, building it the first time. False when the panel has no Take all
-            /// button to copy, in which case the caller leaves the panel alone.
-            /// </summary>
-            internal bool Show(InventoryGui gui)
-            {
-                if (button == null && !Create(gui))
-                {
-                    return false;
-                }
-                button.gameObject.SetActive(true);
-                return true;
-            }
-
-            internal void Hide()
-            {
-                if (button != null)
-                {
-                    button.gameObject.SetActive(false);
-                }
-            }
-
-            /// <summary>
-            /// Either in the spot of the vanilla button <paramref name="at"/>, keeping the edge
-            /// that button is lined up on - its left for Take all, its right for Stack all -
-            /// while the extra width grows the other way, or, without one, in the column beside
-            /// the panel, <paramref name="slot"/> places down from its top edge.
-            /// </summary>
-            internal void Place(InventoryGui gui, Button at, bool keepLeft, int slot)
-            {
-                RectTransform takeAll = gui.m_takeAllButton != null
-                    ? (RectTransform)gui.m_takeAllButton.transform : null;
-                if (takeAll == null)
-                {
-                    return;
-                }
-                float height = takeAll.rect.height;
-                float width = Mathf.Max(takeAll.rect.width, LabelWidth() + 2f * Margin);
-                RectTransform rect = (RectTransform)button.transform;
-                rect.sizeDelta = new Vector2(width, height);
-                RectTransform spot = at != null ? (RectTransform)at.transform : null;
-                if (spot == null)
-                {
-                    RectTransform panel = gui.m_container;
-                    PanelButtons.Pin(rect, new Vector2(
-                        PanelButtons.ColumnLeft(panel) + width * 0.5f,
-                        PanelButtons.ColumnTop(panel) - height * 0.5f - slot * (height + PanelButtons.Gap)));
-                    return;
-                }
-                rect.anchorMin = spot.anchorMin;
-                rect.anchorMax = spot.anchorMax;
-                rect.pivot = spot.pivot;
-                float grown = width - spot.rect.width;
-                rect.anchoredPosition = spot.anchoredPosition
-                    + new Vector2(keepLeft ? grown * (1f - spot.pivot.x) : -grown * spot.pivot.x, 0f);
-            }
-
-            /// <summary>
-            /// How wide the label wants to be for its current text, from the text's own
-            /// preferred width (a TextMeshPro property, read by reflection since that assembly
-            /// is not referenced). Zero when there is no label to ask.
-            /// </summary>
-            private float LabelWidth()
-            {
-                if (labelText == null)
-                {
-                    Transform text = button.transform.Find("Text");
-                    if (text == null)
-                    {
-                        return 0f;
-                    }
-                    foreach (Component component in text.GetComponents<Component>())
-                    {
-                        PropertyInfo property = component.GetType().GetProperty("preferredWidth", typeof(float));
-                        if (property != null && property.CanRead)
-                        {
-                            labelText = component;
-                            labelWidth = property;
-                            break;
-                        }
-                    }
-                }
-                return labelText != null ? (float)labelWidth.GetValue(labelText, null) : 0f;
-            }
-
-            private bool Create(InventoryGui gui)
-            {
-                Button takeAll = gui.m_takeAllButton;
-                if (takeAll == null)
-                {
-                    return false;
-                }
-                GameObject go = UnityEngine.Object.Instantiate(takeAll.gameObject, takeAll.transform.parent);
-                go.name = name;
-                button = go.GetComponent<Button>();
-                if (button == null)
-                {
-                    UnityEngine.Object.Destroy(go);
-                    return false;
-                }
-                button.onClick = new Button.ButtonClickedEvent();
-                button.onClick.AddListener(onClick);
-                go.transform.SetSiblingIndex(takeAll.transform.GetSiblingIndex());
-                tip = PanelButtons.Tooltip(gui, go);
-                label = null;
-                tooltip = null;
-                labelText = null;
-                labelWidth = null;
-                return true;
-            }
-
-            /// <summary>
-            /// The label is a TextMeshPro text, which is not among the staged reference
-            /// assemblies, so it is set through the one property both it and a legacy Text have.
-            /// <paramref name="text"/> is a $omp_ token, which nothing else would translate -
-            /// unlike a tooltip, a label on a component is shown exactly as it is written. It is
-            /// translated on the way in and compared translated, so the caller may hand the same
-            /// token over every frame and the label still follows a language change.
-            /// </summary>
-            internal void SetLabel(string text, params string[] words)
-            {
-                if (Localization.instance != null)
-                {
-                    text = Localization.instance.Localize(text, words);
-                }
-                if (text == label)
-                {
-                    return;
-                }
-                label = text;
-                foreach (Component component in button.GetComponentsInChildren<Component>(true))
-                {
-                    PropertyInfo property = component.GetType().GetProperty("text", typeof(string));
-                    if (property != null && property.CanWrite)
-                    {
-                        property.SetValue(component, text, null);
-                    }
-                }
-            }
-
-            /// <summary>
-            /// The hover text. The copy comes without a `UITooltip`, so `PanelButtons.Tooltip`
-            /// made one when the button was built; without it there is nothing to write to.
-            /// </summary>
-            internal void SetTooltip(string topic, string text)
-            {
-                if (text == tooltip || tip == null)
-                {
-                    return;
-                }
-                tooltip = text;
-                tip.m_topic = topic;
-                tip.m_text = text;
+                SetExcluded(chest, !IsExcluded(chest));
             }
         }
     }

@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Logging;
 using HarmonyLib;
 using System.Linq;
 
@@ -18,20 +19,16 @@ namespace OdinsMissingPatch
         /// <summary>Every tweak the mod ships. Listing one here is all it takes to enable it.</summary>
         private static readonly Tweak[] Tweaks =
         {
-            StationRange.Instance,
-            ComfortRange.Instance,
+            Ranges.Instance,
             EndlessFuel.Instance,
-            MistClearRange.Instance,
             CombatStamina.Instance,
-            InstantComfort.Instance,
-            FiresideHealing.Instance,
+            Resting.Instance,
             FastPortals.Instance,
             KeepGearOnDeath.Instance,
             AreaRepair.Instance,
             NearbyCrafting.Instance,
             QuickStack.Instance,
-            NearbyFuel.Instance,
-            AddAll.Instance,
+            StationRefill.Instance,
             AutoRepair.Instance,
             ChestButtons.Instance,
             InventoryButtons.Instance,
@@ -47,8 +44,13 @@ namespace OdinsMissingPatch
             CollateralDamage.Instance,
         };
 
+        /// <summary>The mod's one log, for every tweak and helper.</summary>
+        internal static ManualLogSource Log;
+
         void Awake()
         {
+            Log = Logger;
+            SharedSettings.Bind(Config);
             Patcher.Map(Tweaks, Logger);
             foreach (Tweak tweak in Tweaks)
             {

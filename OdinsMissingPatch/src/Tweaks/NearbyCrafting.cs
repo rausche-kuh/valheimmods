@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,40 +20,16 @@ namespace OdinsMissingPatch
 
         private NearbyCrafting() { }
 
-        private ConfigEntry<float> range;
-
         internal override string Section => "Nearby Crafting";
 
         protected override string Summary =>
-            "Crafting, upgrading and building take their materials from chests around you, " +
-            "without opening them. Only chests placed by a player, and not chests switched off " +
-            "with the Nearby use button in their panel.";
+            "Crafting, upgrading and building take their materials from chests around you " +
+            "(General.ChestRange), without opening them. Only chests placed by a player, and not " +
+            "chests switched off with the Nearby use button in their panel.";
 
-        protected override void Bind(ConfigFile config)
-        {
-            range = config.Bind(Section, "Range", 20f, new ConfigDescription(
-                "How far from you a chest may stand, in metres, for its contents to count.",
-                new AcceptableValueRange<float>(1f, 100f)));
-        }
+        private static bool Enter(Player player) => NearbyChests.EnterReach(Instance, player);
 
-        /// <summary>Opens the reach when the tweak is on and the check is the local player's; the finalizer closes it.</summary>
-        private static bool Enter(Player player)
-        {
-            if (!Instance.On || player == null || player != Player.m_localPlayer)
-            {
-                return false;
-            }
-            NearbyChests.EnterReach(Instance.range.Value);
-            return true;
-        }
-
-        private static void Leave(bool entered)
-        {
-            if (entered)
-            {
-                NearbyChests.LeaveReach();
-            }
-        }
+        private static void Leave(bool entered) => NearbyChests.LeaveReach(entered);
 
         /// <summary>
         /// The recipe check. A recipe that takes any one of its ingredients is left out: the game
@@ -89,11 +64,6 @@ namespace OdinsMissingPatch
 
             private static void Finalizer(bool __state) => Leave(__state);
         }
-
-        /// <summary>The yellow of an amount that the chests, not the backpack, pay for.</summary>
-        private static readonly Color ChestColor = new Color(1f, 0.84f, 0.3f);
-
-        private const string ChestColorTag = "<color=#ffd64d>";
 
         /// <summary>
         /// The ingredient rows of the crafting panel and the build HUD. The row counts inside the
@@ -142,7 +112,7 @@ namespace OdinsMissingPatch
                     Localization localization = Localization.instance;
                     tooltip.m_text = localization.Localize(name) +
                         "\n" + localization.Localize("$omp_carried", __state.Carried.ToString()) +
-                        "\n" + ChestColorTag +
+                        "\n" + Palette.ChestYellowTag +
                         localization.Localize("$omp_from_chests", fromChests.ToString()) + "</color>";
                 }
                 int need = req.GetAmount(quality) * craftMultiplier;
@@ -157,7 +127,7 @@ namespace OdinsMissingPatch
                 Graphic text = amount != null ? amount.GetComponent<Graphic>() : null;
                 if (text != null)
                 {
-                    text.color = ChestColor;
+                    text.color = Palette.ChestYellow;
                 }
             }
 

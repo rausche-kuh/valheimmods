@@ -19,10 +19,10 @@ subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `
   `MapTable.Start`, `Game.Start`): patched mid game it would miss everything already loaded. A
   tweak switched on mid game waits for the next launch while one of its load hooks is not in;
   otherwise it is patched on the spot. A load patch whose tweak has a rescale that catches up on
-  what is loaded (`StationRange`, `MistClearRange`) needs no `LoadHook`.
+  what is loaded (`Ranges`) needs no `LoadHook`.
 - Every `OnSettingChanged` handler also runs when the tweak's patches go in or come out, since `On`
   changes then without a setting changing. So it has to bring what is loaded up to date from any
-  state - the ratio rescale does, starting from the scale it last applied.
+  state - the `vanilla * scale` rescale below does that by construction.
 - Name a patch target with `nameof`, never a string: the publicizer makes private members
   reachable, and a rename then breaks the build after `setup` instead of a tweak at runtime.
 
@@ -30,22 +30,19 @@ subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `
 
 - A multiplier is `1` when its tweak is off, so callers multiply either way instead of branching.
   `BindMultiplier` clamps to 0.1–20: the value goes straight into a game field.
-- A tweak that only reads its setting where it is used (`ComfortRange`) needs nothing else. One
-  that *writes* game state on load (`StationRange` scales `m_rangeBuild` in `CraftingStation.Start`)
-  must also rescale what is already loaded from `OnSettingChanged`, by the ratio of the new scale to
-  the last applied one — the vanilla values are gone once they have been multiplied.
-- The ratio only works when a rescale reaches everything the load patch touched. Where the game's
-  registry is `OnEnable`/`OnDisable` based (`Demister`), something switched off during the change
-  would come back at a stale scale and drift on the next ratio; `MistClearRange` instead keeps each
-  instance's vanilla value in a `ConditionalWeakTable` and sets `vanilla * scale`, which is
-  idempotent, so it can be applied on every `OnEnable` and every rescale without bookkeeping.
+- A tweak that only reads its setting where it is used (`Ranges`' comfort radius) needs nothing
+  else. One that *writes* game state on load (`Ranges` scales `m_rangeBuild` in
+  `CraftingStation.Start`) keeps each object's vanilla values in a `ConditionalWeakTable` the first
+  time it sees it and sets `vanilla * scale`. That is idempotent, so the load patch and an
+  `OnSettingChanged` rescale over the game's registry can both apply it at any time without
+  bookkeeping (`Ranges`, `PocketUpgrades`).
 - `CraftingStation.m_allStations` / `StationExtension.m_allExtensions` (private statics, reachable
   thanks to the publicizer) are the registries of what is actually in the world; use them for a
   rescale rather than `Resources.FindObjectsOfTypeAll`, which also returns the prefabs — scaling a
   prefab would compound with the `Start` patch on every station spawned afterwards.
 - Scale exactly what a rescale can reach again. A patch that writes to an object the game never
   registered (a placement ghost) leaves it stranded at whatever the multiplier was when it spawned,
-  so `StationExtension`'s postfix repeats the game's own `GetZDO() != null` condition and skips it.
+  so `Ranges`' `StationExtension` postfix repeats the game's own `GetZDO() != null` condition and skips it.
 - A cost that is computed and spent inside one method (`CombatStamina`'s sprint, jump, swim and
   sneak) is waived by letting the method run untouched and dropping the spend at
   `Player.UseStamina`, under a static flag the method's prefix sets and its postfix clears. That
@@ -58,8 +55,9 @@ subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `
 - Anything decided per character (`Attack` runs for every character in the world) is waived only
   for `Player.m_localPlayer`; a check that is only ever clear when nothing hostile is near is
   exactly what a wandering boar would otherwise collect on.
-- A list setting is one comma separated `ConfigEntry<string>` (`KeepGearOnDeath.KeepTypes`),
-  parsed into a set once at bind and again from the entry's own `SettingChanged`, never per use.
+- A list setting is one comma separated `ConfigEntry<string>` bound with `Tweak.BindList`
+  (`KeepGearOnDeath.KeepTypes`), parsed into a set once at bind and again on every change, never
+  per use.
   Unknown names are logged and skipped rather than failing the whole list; the description lists
   every valid name so a player never has to look them up.
 - A tweak that repeats a game action on many objects (`AreaRepair`) pays the game's own price for
@@ -74,8 +72,10 @@ subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `
   declared `partial` and calls a `static partial void` method; the body lives in `src/Dev/` in a
   second `partial` part of the same class. A Release build has no body, so the compiler drops the
   call along with it — no flag, no `#if`, nothing of the dev code ships.
-- A colour the mod draws itself comes from the game's UI palette, so it fits in. There is no
-  palette in code (the text markup uses the named `orange` and `yellow`); these were read from the
+- A colour the mod draws itself comes from `Palette` (`src/Palette.cs`), one colour per meaning,
+  and those follow the game's UI palette so they fit in. Settings more than one tweak reads live in
+  `SharedSettings` (the `General` section), not in one of the tweaks. The game has no palette in
+  code (the text markup uses the named `orange` and `yellow`); these were read from the
   `Image` and text colours in `_GameMain`'s bundle on 2026-09-24. Accents: ornament and
   separator orange #FF8E00, selection amber #FFA300, bar and selection gold #FFD800, the map's
   player marker #FFE200, soft amber #FFB75B (food icons, ship marker, highlighter), equipped blue

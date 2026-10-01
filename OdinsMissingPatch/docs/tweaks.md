@@ -8,22 +8,22 @@ for players; this is the developer's index — the deep notes live in the docs l
 (writes a ZDO — needs the mod on whichever client owns the object), *character* (writes the
 player's own save).
 
+Two settings serve several tweaks and live in `SharedSettings` (the `General` section): `ChestRange`
+(20m), how far a chest counts for every chest tweak, and `KeepHotbar` (on), which keeps quick
+stack, Place all, Fill the chest and Sort off the hotbar row.
+
 | Tweak | Scope | Deep notes |
 | --- | --- | --- |
-| StationRange | client | [building-and-world](building-and-world.md) |
-| ComfortRange | client | [comfort-and-healing](comfort-and-healing.md) |
+| Ranges | client | [building-and-world](building-and-world.md), [comfort-and-healing](comfort-and-healing.md) |
 | EndlessFuel | world state | [building-and-world](building-and-world.md) |
-| MistClearRange | client | [building-and-world](building-and-world.md) |
 | CombatStamina | client | [stamina](stamina.md) |
-| InstantComfort | client | [comfort-and-healing](comfort-and-healing.md) |
-| FiresideHealing | client | [comfort-and-healing](comfort-and-healing.md) |
+| Resting | client | [comfort-and-healing](comfort-and-healing.md) |
 | FastPortals | client | [death-and-portals](death-and-portals.md) |
 | KeepGearOnDeath | client | [death-and-portals](death-and-portals.md) |
 | AreaRepair | world state (game's own RPC) | [building-and-world](building-and-world.md) |
 | NearbyCrafting | world state (chests) | [chests](chests.md) |
 | QuickStack | world state (chests) | [chests](chests.md) |
-| NearbyFuel | world state (chests) | [chests](chests.md) |
-| AddAll | world state (chests, station RPCs) | [chests](chests.md) |
+| StationRefill | world state (chests, station RPCs) | [chests](chests.md) |
 | AutoRepair | client | [building-and-world](building-and-world.md) |
 | ChestButtons | world state (the open chest) | [inventory-ui](inventory-ui.md) |
 | InventoryButtons | client (chest writes go to the open chest) | [inventory-ui](inventory-ui.md), [item-order](item-order.md) |
@@ -35,31 +35,30 @@ player's own save).
 | AutoPins | character (the removed-pin record); a routed RPC to the other clients | [map-pins](map-pins.md) |
 | PinLooks | client | [map-pins](map-pins.md) |
 | DeathPins | client | [map-pins](map-pins.md) |
-| PlayerMarks | client | this entry |
+| PlayerMarks | client | [player-marks](player-marks.md) |
 | CollateralDamage | world state (victim ZDOs); both the attacker's and the victim's owner need the mod | [creature-hits](creature-hits.md) |
 
 ## Shipped (0.1.0)
 
-- **Station range** — a crafting station's build/craft/repair radius, and how far its extensions
-  may stand from it. Doubled by default, configurable. The area marker circle grows with it.
-- **Comfort range** — the radius Rested counts furniture in. Doubled by default.
+- **Ranges** — one multiplier each (1 is vanilla, 2 by default) on a crafting station's
+  build/craft/repair radius, how far its extensions may stand from it, the radius Rested counts
+  furniture in, and the circle a `Demister` (wisplight, wisp torches, ...) clears of mist (0.2.0).
+  The area marker circle grows with the station. Was Station range, Comfort range and Mist clear
+  range until they were merged.
 
 ## Shipped (0.2.0)
 
 - **Endless fuel** — every `Fireplace` (campfires, hearths, torches, braziers, the hot tub) is kept
   topped up, so nothing that burns fuel for light goes out. The only tweak of the first three that
   writes world state (the fuel on the fire's ZDO), owner only.
-- **Mist clear range** — every `Demister` (wisplight ball, wisp torches, anything else that clears
-  the Mistlands mist) clears a wider circle, doubled by default.
 - **Combat stamina** — sprinting, jumping, swimming, sneaking, building, chopping, mining and
   weapon swings cost nothing while nothing hostile is within 25m and nothing that has noticed the
   player is coming for them; the bar also refills while swimming and mid swing. One switch per cost.
-- **Instant comfort** — sitting down by a fire grants Rested at once, for the comfort of the spot,
-  instead of after the ten seconds of Resting.
-- **Fireside healing** — the game's ten second food regen tick also heals `comfort level ×
-  HealthPerComfortLevel` (2 by default) while the player is Resting, sitting by default. The amount
-  is folded into the tick's own `Heal` call so it shows as one number, and is healed on its own when
-  no food is eaten and the game heals nothing.
+- **Resting** — `InstantRested`: sitting down by a fire grants Rested at once, for the comfort of
+  the spot, instead of after the game's wait. `HealthPerComfortLevel`: the game's food regen tick
+  also heals `comfort level × HealthPerComfortLevel` while the player is Resting (sitting, with
+  `RequireSitting`); the amount is folded into the tick's own `Heal` call so it shows as one
+  number, and is healed on its own when no food is eaten. Was Instant comfort and Fireside healing.
 - **Fast portals** — a portal trip ends as soon as the screen is black and the other side is
   loaded, not after the fixed eight seconds; the fade is shorter too. Dungeon doors
   (`InstantDungeonDoors`, on by default) skip the black screen entirely when the inside is loaded.
@@ -71,29 +70,27 @@ player's own save).
   configurable radius (10m) of the one the player aims at, closest first, at the game's own cost per
   piece. It writes through the game's own `WearNTear.Repair` RPC, so it needs no server install.
 - **Nearby crafting** — the game's requirement checks and spends see the player-placed chests
-  within a configurable range (20m) as part of the backpack, backpack paying first. An ingredient
+  within `ChestRange` as part of the backpack, backpack paying first. An ingredient
   amount the chests have to pay for shows yellow, and its tooltip lists carried vs. in chests.
 - **Quick stack** — a hotkey (`.` by default; G is bound by the game) moves every carried stack into
-  the nearest chest in range that already holds that item, with a three-second glow and a floating
-  count per chest. An Alt-click in the player's own inventory marks a stack as a favourite (golden
+  the nearest chest in range that already holds that item, with a glow and a floating count per
+  chest. An Alt-click in the player's own inventory marks a stack as a favourite (golden
   frame), which quick stacking skips, as it does equipped items and the hotbar; the mark exists only
-  in that inventory and is stripped from every stack that leaves it. The same Alt-click in an open
+  while quick stack is on, only in that inventory and is stripped from every stack that leaves it. The same Alt-click in an open
   chest's grid marks the *chest* for that kind of item (`ChestFavorites`, on the chest's ZDO): a
   marked chest counts as holding it, and is filled before the chests that do. A slot of a marked
   kind shows its amount in yellow; the chest panel's Clear favourites button lists every mark in
   its tooltip, the ones the chest holds none of included. Read by
   Chest buttons' Fill the chest's stacks as well, so either tweak alone is enough for the marks to
   mean something.
-- **Nearby fuel** — the four manual add-fuel interactions (fire, smelter, oven, shield generator)
-  see the chests the same way, so a unit comes out of a chest when the backpack has none; nothing
-  refuels itself.
-- **Add all** — Shift + Use on a `Fireplace`, a `Smelter` switch (ore or fuel), a `CookingStation`
-  (fuel switch, food switch or the spit itself), a `ShieldGenerator` switch or a `Turret` puts in
-  min(room under the cap, carried) units through the station's own add RPC, one call per unit. Fuel,
-  ore, food and bolts alike are counted and paid through a reach of its own, so the backpack pays
-  first and the chests around the player pay the rest. It hands the Use back to the game whenever
-  the game would do exactly the same, so the vanilla messages explain a full station or an empty
-  backpack.
+- **Station refill** — `SingleFromChests`: the four manual add-fuel interactions (fire, smelter,
+  oven, shield generator) see the chests the way nearby crafting does, so a unit comes out of a
+  chest when the backpack has none; nothing refuels itself. `AddAll`: Shift + Use on a
+  `Fireplace`, a `Smelter` switch (ore or fuel), a `CookingStation` (fuel switch, food switch or
+  the spit itself), a `ShieldGenerator` switch or a `Turret` puts in min(room under the cap,
+  carried) units through the station's own add RPC, backpack first and the chests after. It hands
+  the Use back to the game whenever the game would do exactly the same, so the vanilla messages
+  explain a full station or an empty backpack. Was Nearby fuel and Add all.
 - **Auto repair** — pressing Use on a crafting station repairs every worn item in the inventory that
   station could repair, asking the crafting panel's own `CanRepair` per item, instead of one item
   per click of the repair button. Repairing is free in vanilla, so there is nothing to pay.
@@ -102,11 +99,11 @@ player's own save).
   shared with Inventory buttons), which tops the backpack's stacks up to their caps and opens no
   new one; take all, place all, fill the chest's stacks from the backpack and
   sort the chest, in a column beside the chest panel. The two that put things in skip worn gear,
-  favourites and (a switch) the hotbar; Fill the chest's stacks also takes the kinds the chest is
+  favourites and the hotbar (`KeepHotbar`); Fill the chest's stacks also takes the kinds the chest is
   marked for, whether or not it holds any.
 - **Inventory buttons** — stack nearby (quick stacking by click, shown while that tweak is on and no
   chest is open) and sort, in the same column. The sort merges stacks and lays out by kind, name and
-  quality, leaving equipped items, favourites and, by default, the hotbar in place; materials come
+  quality, leaving equipped items, favourites and the hotbar (`KeepHotbar`) in place; materials come
   first by whether a portal carries them, then by family and depth, then by name.
 - **Power picker** — a ninth element in the radial menu's top level, a Forsaken powers group whose
   sub menu holds one element per power whose boss has fallen, with the power's own `StatusEffect`
@@ -157,44 +154,9 @@ player's own save).
 - **Death pins** — a death pin within 32m whose grave (a `TombStone` the local player owns) is not
   within 8m of it on two sweeps in a row is removed (`RemoveWithGrave`); a death that set up no
   grave has its pin removed right after `Player.OnDeath` (`OnlyWithGrave`).
-- **Player marks** — a small round mark over the head of every other player, drawn in an
-  `EnemyHud.LateUpdate` postfix as `Image`s under `m_hudRoot` (screen-space overlay, so a
-  `transform.position` is a screen pixel, and the marks hide with the HUD); hidden while the large
-  map or the inventory is open. No mark within `HideWithin` (10m); up to `ShowFrom` (50m) only when
-  a raycast from the camera hits terrain or a piece first (BaseAI's solid mask, a hit within
-  0.75m of the target ignored); always beyond. The mark is always opaque — subtle only by its size.
-  It shrinks to 75% of `MarkSize` (16) at `FarFrom` (400m); `HideBeyond` (0, off) drops it. Off
-  screen or behind the camera it slides to the screen's edge along the line from the centre
-  (`ShowOffScreen`). Loaded players come from `Player.GetAllPlayers()`; past the loaded area,
-  `ZNet.GetOtherPublicPlayers` — the server's player list, which carries a position only for a
-  player who shares it on the map, so a player hidden from the map gets no mark out there. Each
-  mark is three runtime-generated, mipmapped sprites, stacked as a parent and two stretched
-  children: the near disc (`CentreColor` out to `EdgeColor`), the far disc (`EdgeColor` out to
-  `FarEdgeColor`) faded in over it by distance, so the blend stays at full brightness, and the
-  rings — a thin light one inside a dark brown outline, so one of the two contrasts with any
-  background. The colours were tuned in game from the UI palette (see `docs/conventions.md`): a
-  muted gold #AA8051 centre out to the ornament orange #FF8E00, far out to a pale blue #8DC6E4;
-  a gold #E1A766 ring (the UI's plain white stood out of the scene) and the scroll panels' brown
-  #302114 for the outline. All radii are fixed parts of the sprite, so `MarkSize` scales the
-  whole mark. The discs and rings are drawn with every radius divided by an outline function of
-  the angle — three sine waves of 5, 11 and 17 bumps laid over each other, swinging the edge by
-  up to 20% — so the mark is a rugged, hewn shape rather than a perfect circle, and the rings
-  follow it. Sparks (`Sparks`, on) drift out from under the outline: a few soft-dot children
-  per mark, drawn beneath the far disc and the rings, in the edge colour of the moment, each
-  fading out over its flight and restarting at a new angle. The angle is a hash of the mark, the
-  spark and the round, so they keep no state. The ring widths, the gradient's curve, the far
-  size, the ring colours, the outline's ruggedness and bumps and the sparks' count, rate, travel and size are static fields rather
-  than config; in a Debug build
-  `omp_mark <name> <value>` tunes them and the config values live (`omp_mark` alone prints them
-  all as one pasteable line, `omp_mark reset` restores the defaults), so a look is found in game
-  and then written back as the defaults. The gradients are baked into the textures, since an `Image` tint only multiplies
-  and cannot make the centre brighter than the edge; they are redrawn when a colour setting changes. The sprite maths uses its own smooth step: `Mathf.SmoothStep(from, to, t)`
-  interpolates between `from` and `to`, and used as a step it gave a translucent square. The
-  colour keys were `NearColor` / `FarColor`, then `MarkColor` / `FarMarkColor`, renamed each
-  time so existing configs pick up the new look; `CentreColor` / `EdgeColor` / `FarEdgeColor`
-  kept their names when they moved to the palette. In a Debug build `src/Dev/MarkWards.cs`
-  fills the partial `AddDevTargets` with every loaded ward, so the marks can be tried alone
-  (`omp_marks_wards` switches it); in Release the partial has no body and the call is gone.
+- **Player marks** — a small round mark over the head of every other player, drawn on the HUD:
+  shown when they are hidden behind terrain or a piece or far off, shrinking with distance, and
+  held at the screen's edge when they are off screen.
 - **Collateral damage** — trolls (`Creatures`, prefab names) and every boss but `SeekerQueen` (`Bosses`) hit the
   creatures they do not count as enemies: a postfix on `Attack.DoMeleeAttack` repeats the sweep
   (characters never end a ray, anything solid does), one on `DoAreaAttack` repeats the overlap,

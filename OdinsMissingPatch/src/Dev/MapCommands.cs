@@ -9,9 +9,6 @@ namespace OdinsMissingPatch
     // Dev only: src/Dev/ is compiled into Debug builds alone, so this never ships.
     internal static class MapCommands
     {
-        private static readonly BepInEx.Logging.ManualLogSource Log =
-            BepInEx.Logging.Logger.CreateLogSource(OdinsMissingPatchPlugin.NAME);
-
         /// <summary>
         /// omp_locations: every location of the game with what AutoPins asks of it, to check
         /// PlaceList and the dungeon rule against the current build. The whole table is written to
@@ -76,7 +73,7 @@ namespace OdinsMissingPatch
             }
             foreach (string line in lines)
             {
-                Log.LogInfo("omp_locations: " + line);
+                OdinsMissingPatchPlugin.Log.LogInfo("omp_locations: " + line);
                 context.AddString(line);
             }
             context.AddString(lines.Count + " locations, also in the BepInEx log");

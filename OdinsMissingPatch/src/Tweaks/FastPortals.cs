@@ -1,5 +1,4 @@
 using BepInEx.Configuration;
-using BepInEx.Logging;
 using HarmonyLib;
 
 namespace OdinsMissingPatch
@@ -26,9 +25,6 @@ namespace OdinsMissingPatch
         internal static readonly FastPortals Instance = new FastPortals();
 
         private FastPortals() { }
-
-        private static readonly ManualLogSource Log =
-            BepInEx.Logging.Logger.CreateLogSource(OdinsMissingPatchPlugin.NAME);
 
         /// <summary>
         /// The game's minimum trip time: the timer has to pass it before the floor is looked for.
@@ -118,7 +114,7 @@ namespace OdinsMissingPatch
                 {
                     if (waitedForFloor)
                     {
-                        Log.LogInfo(Instance.Section + ": the floor inside the door appeared after " +
+                        OdinsMissingPatchPlugin.Log.LogInfo(Instance.Section + ": the floor inside the door appeared after " +
                             __instance.m_teleportTimer.ToString("0.00") + "s");
                         waitedForFloor = false;
                     }

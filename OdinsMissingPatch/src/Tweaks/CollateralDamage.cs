@@ -38,12 +38,11 @@ namespace OdinsMissingPatch
         // The game's melee sweep steps its rays every 4 degrees.
         private const float SweepStep = 4f;
 
-        private ConfigEntry<string> creatures;
         private ConfigEntry<bool> bosses;
         private ConfigEntry<float> damage;
         private ConfigEntry<float> lootLimit;
 
-        // Prefab hashes parsed from creatures; re-read when the setting changes, never per hit.
+        // Prefab hashes parsed from Creatures; re-read when the setting changes, never per hit.
         private HashSet<int> attackers = new HashSet<int>();
 
         internal override string Section => "Collateral Damage";
@@ -56,9 +55,9 @@ namespace OdinsMissingPatch
 
         protected override void Bind(ConfigFile config)
         {
-            creatures = config.Bind(Section, "Creatures", "Troll",
+            BindList(config, "Creatures", "Troll",
                 "Comma separated prefab names of the creatures whose attacks hit the creatures in " +
-                "their way, e.g. Troll, Abomination, Gjall. Tamed ones never do.");
+                "their way, e.g. Troll, Abomination, Gjall. Tamed ones never do.", Parse);
             bosses = config.Bind(Section, "Bosses", true,
                 "Every boss's attacks but the Queen's hit the creatures in their way too. What a boss spawns is never hit.");
             damage = BindMultiplier(config, "Damage", 1f,
@@ -67,20 +66,14 @@ namespace OdinsMissingPatch
                 "A creature that was not finished by a player drops nothing once trolls and bosses " +
                 "hitting it by accident took more than this share of its health. 1 keeps all loot.",
                 new AcceptableValueRange<float>(0f, 1f)));
-            creatures.SettingChanged += (sender, args) => Parse();
-            Parse();
         }
 
-        private void Parse()
+        private void Parse(List<string> names)
         {
             var parsed = new HashSet<int>();
-            foreach (string raw in creatures.Value.Split(','))
+            foreach (string name in names)
             {
-                string name = raw.Trim();
-                if (name.Length > 0)
-                {
-                    parsed.Add(name.GetStableHashCode());
-                }
+                parsed.Add(name.GetStableHashCode());
             }
             attackers = parsed;
         }

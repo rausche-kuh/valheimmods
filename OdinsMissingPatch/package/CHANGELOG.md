@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Settings reorganised; changed values are not carried over.** Check the config file after
+  updating:
+  - Station range, comfort range and mist clear range are one tweak, **Ranges**, with one
+    multiplier each.
+  - Instant comfort and fireside healing are one tweak, **Resting** (`InstantRested`,
+    `HealthPerComfortLevel`, `RequireSitting`).
+  - Nearby fuel and add all are one tweak, **Station refill** (`SingleFromChests`, `AddAll`).
+  - The four chest ranges are one, `General.ChestRange`, and the three hotbar switches of quick
+    stack, chest buttons and inventory buttons are one, `General.KeepHotbar`.
+- Favourites only count while quick stack is on. Before, switching quick stack off hid the golden
+  frames, but Place all, Sort and auto shield still treated those items as favourites.
+- The "Nearby use: off" line on a chest's hover text is translated like the rest.
+
 - Added: collateral damage. A troll's swing and ground slam hit the greydwarfs in the way,
   Eikthyr's lightning hits the dwarfs in the arena, Yagluth's meteors hit fulings and lox, and
   so on for every boss but the Queen. Nothing hit this way fights back or picks a new target,

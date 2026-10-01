@@ -1,12 +1,12 @@
 # Chests
 
-`src/NearbyChests.cs`, `src/ChestFavorites.cs`, `src/ChestGlow.cs` and the tweaks that reach into
-chests (NearbyCrafting, NearbyFuel, QuickStack, AddAll, ChestButtons).
+`src/NearbyChests.cs`, `src/ChestFavorites.cs`, `src/ChestGlow.cs`, `src/Stash.cs` and the tweaks
+that reach into chests (NearbyCrafting, StationRefill, QuickStack, ChestButtons).
 
 ## Conventions
 
-- A tweak that lets a game action reach into chests (`NearbyCrafting`, `NearbyFuel`) does not
-  patch the action: it opens `NearbyChests.EnterReach(range)` in a prefix on the action and closes
+- A tweak that lets a game action reach into chests (`NearbyCrafting`, `StationRefill`) does not
+  patch the action: it opens `NearbyChests.EnterReach(tweak, user)` in a prefix on the action and closes
   it in a **finalizer** (`__state` says whether it opened), and the three `Inventory` methods the
   action goes through (`CountItems`, `HaveItem(string)`, `RemoveItem(string, ...)`) are widened
   in one place while a reach is open, for the local player's backpack only. The backpack pays
@@ -14,15 +14,21 @@ chests (NearbyCrafting, NearbyFuel, QuickStack, AddAll, ChestButtons).
   finalizer rather than a postfix because Harmony skips postfixes when the original throws, and
   a reach left open would make every later backpack read see the chests. Nothing outside an
   opened reach touches a chest, so "which actions" is the whole design decision of such a tweak,
-  and each is named in the tweak. Reaches nest (AddAll draws up its plan inside the scope
-  NearbyFuel opened on the same Use): the innermost range is in force, and the one around it is
-  back once it closes.
+  and each is named in the tweak. Reaches nest (a `using NearbyChests.Scope` inside an action
+  that already opened one); the chests count while any is open, always within
+  `General.ChestRange`, the one range every chest tweak shares.
 - Shared code that is not a tweak (`NearbyChests`) may hold patches of its own when the thing
   they serve belongs to no single tweak (the registry, the opt-out button); they gate on
   `NearbyChests.AnyTweakOn` rather than on one tweak. State that outlives a tweak's switch and
   belongs to the chest rather than to the player (the opt-out flag, `ChestFavorites`) lives with
-  it, and each such flag has its own gate naming the tweaks that read it (`ChestFavorites.Used`
-  is QuickStack or ChestButtons), so a player who runs only one of them can still set it.
+  it, and each such flag has its own gate, `Patcher.AnyServedOn` of the patch class whose
+  `[Serves]` names the tweaks that read it (`AnyTweakOn` is `Register`'s, `ChestFavorites.Used`
+  is `ShowMarks'`), so the tweaks are listed once and a player who runs only one of them can
+  still set it.
+- Putting the backpack away (QuickStack, Place all, Fill the chest) goes through `Stash`: what
+  may leave (`MayLeave`: not equipped, not a favourite, not on the hotbar while
+  `General.KeepHotbar` is on), which chest takes which kind (`Takes`: holds one, or is marked for
+  it) and the move itself (`Move`, the `AddItem` dance below, returning the units that went).
 - There are two favourites and they never mix: QuickStack's is a flag on one stack and only in
   the backpack, `ChestFavorites` is a list of item *kinds* on one chest. The same Alt-click sets
   both - which one depends on the grid clicked - and they are drawn differently so they never
@@ -59,7 +65,8 @@ chests (NearbyCrafting, NearbyFuel, QuickStack, AddAll, ChestButtons).
   **false** means the merged part was subtracted from `item.m_stack`, the object is still the
   source's, and an error line was logged — hence `HaveEmptySlot() || FindFreeStackSpace() > 0`
   first. `FindFreeStackItem` matches name, quality, world level and cheated flag, not
-  `m_customData`, so a flagged stack absorbs unflagged units and keeps its flag.
+  `m_customData`, so a flagged stack absorbs unflagged units and keeps its flag. The mod's own
+  merges (`InventorySorter.Merges`) are stricter and match variant and custom data too.
 - A chest's favourites are one ZDO string (`OMP_ChestFavorites`) holding the shared names
   (`$item_wood`, the localization token) joined by newlines with one at each end, so a name is
   always matched between two separators and Wood never matches inside WoodArrow. It is read on

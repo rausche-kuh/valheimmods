@@ -9,9 +9,10 @@ Thunderstore as `Crystal/*` and kept as a reference here — a checkout, not a d
 of its code is copied in). Five of its mods touch the same ground as the tweaks here and have been
 shipped and played for far longer, so they are the thing to check before changing any of them:
 
-- `BuildSpace/BuildSpacePlugin.cs` — the station build radius. Same shape as `StationRange`:
-  scale `m_rangeBuild` in a `CraftingStation.Start` postfix, and walk `m_allStations` by the ratio
-  of old to new multiplier when the setting changes. **The area marker's segment count is a fix taken from it.** It
+- `BuildSpace/BuildSpacePlugin.cs` — the station build radius. Same patch as `Ranges`:
+  scale `m_rangeBuild` in a `CraftingStation.Start` postfix and walk `m_allStations` when the
+  setting changes, but by the ratio of old to new multiplier, where `Ranges` sets it from a
+  remembered vanilla value. **The area marker's segment count is a fix taken from it.** It
   differs in setting the projector's radius and count itself (`radius * 4`) rather than leaving the
   radius to the game's own recompute, in leaving `m_extraRangePerLevel` and `StationExtension`
   alone, and in clamping the value in `SettingChanged` rather than declaring an
@@ -20,12 +21,12 @@ shipped and played for far longer, so they are the thing to check before changin
   `SE_Rested`'s `m_baseTTL` / `m_TTLPerComfortLevel` (both worth having as tweaks of their own).
   It reaches the radius with a transpiler over `SE_Rested.GetNearbyComfortPieces`, swapping the
   inlined `10f` for the configured value and re-patching whenever the setting changes;
-  `ComfortRange` instead widens the argument at the one call that literal is spent on, which needs
+  `Ranges` instead widens the argument at the one call that literal is spent on, which needs
   no re-patching and does not care what the constant is. Their `Player.Awake`/`OnDestroy` roster
   and `ObjectDB` hook are the way to reach a live `SE_Rested`, if a rested-time tweak ever needs it.
-- `ClearTheAir/ClearTheAirPlugin.cs` — the mist clear radius, and the model for `MistClearRange`.
+- `ClearTheAir/ClearTheAirPlugin.cs` — the mist clear radius, and the model for `Ranges`' mist radius.
   It scales `m_forceField.endRange` in a `Demister.Awake` postfix and walks `m_instances` by the
-  ratio of old to new multiplier on a setting change. `MistClearRange` patches `OnEnable` instead
+  ratio of old to new multiplier on a setting change. `Ranges` patches `OnEnable` instead
   (it runs after `Awake`, and again after a re-enable) and sets the range from a remembered
   vanilla value, see the conventions above; otherwise the same shape.
 
@@ -125,7 +126,7 @@ Jötunn and syncs its gameplay settings from the server; this mod does neither.
   click is needed at all; it also plays the station effect once per item and does not ask
   `m_canRepair`.
 - `Stations/*` — its stations pull ore, food and fuel by themselves on their update ticks and
-  store their output; the roadmap wanted none of that, so `NearbyFuel` widens the manual
+  store their output; the roadmap wanted none of that, so `StationRefill` widens the manual
   add-fuel interactions and nothing else.
 
 ## Map tables and auto pins

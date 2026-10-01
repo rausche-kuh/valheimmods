@@ -1,6 +1,6 @@
 # Comfort, Rested and healing
 
-ComfortRange, InstantComfort, FiresideHealing.
+Ranges (`ComfortRadiusMultiplier`), Resting (`InstantRested`, `HealthPerComfortLevel`, `RequireSitting`).
 
 - The comfort radius is a literal `10f` in `SE_Rested.GetNearbyComfortPieces`, but it reaches the
   world through `Piece.GetAllComfortPiecesInRadius(p, radius, pieces)`, whose only caller that is.
@@ -16,7 +16,7 @@ ComfortRange, InstantComfort, FiresideHealing.
   `m_baseTTL + (comfort - 1) * m_TTLPerComfortLevel` only if that is longer than what is left,
   so refreshing it every frame never shortens it. The comfort it reads is
   `Player.m_comfortLevel`, re-measured by `Player.UpdateBaseValue` on a 2s timer - stale for up to
-  2s after walking in, which is why `InstantComfort` measures it again before the first grant.
+  2s after walking in, which is why `InstantRested` measures it again before the first grant.
   `IsSitting()` is the animator tag, so a chair, a bench and the sit emote all count.
 - All health regen is one tick at the tail of `Player.UpdateFood(dt, forceUpdate)` (local player
   only, from `UpdateStats` in `FixedUpdate`): `m_foodRegenTimer` counts plain `dt` to a literal

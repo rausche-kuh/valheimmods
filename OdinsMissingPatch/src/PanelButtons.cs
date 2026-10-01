@@ -10,39 +10,124 @@ using UnityEngine.UI;
 namespace OdinsMissingPatch
 {
     /// <summary>
-    /// Square icon buttons for the inventory screen, shared by ChestButtons and InventoryButtons.
-    /// Each is a copy of the chest panel's own Take all button, so it keeps the game's button
-    /// skin, hover tint and click sound, with the label blanked and an icon from assets/icons/
-    /// drawn in its place in the colour the label had. A tooltip names the button, since the
-    /// icon is all that shows. The buttons stand beside the panels, clear of their background,
-    /// in a column each at the same distance from the panel: beside the inventory between the
-    /// armour and weight boxes, beside the chest from its top edge down.
+    /// The buttons the mod adds to the inventory screen, and the one place that lays them out.
+    /// An icon button is a copy of the chest panel's own Take all button, so it keeps the game's
+    /// button skin, hover tint and click sound, with the label blanked and an icon from
+    /// assets/icons/ drawn in its place in the colour the label had; a tooltip names it, since
+    /// the icon is all that shows. Icon buttons stand beside the panels, clear of their
+    /// background, in a column each at the same distance from the panel: beside the inventory
+    /// between the armour and weight boxes, beside the chest from its top edge down. A
+    /// <see cref="TextButton"/> keeps a label instead and takes the spot of the game's Take all
+    /// or Stack all while those are hidden.
+    ///
+    /// Owners hand their buttons over once (<see cref="Add(Column, int, string, string, string, string, UnityAction, Func{InventoryGui, bool})"/>,
+    /// <see cref="Add(TextButton, Spot, Func{InventoryGui, bool}, Action{InventoryGui})"/>)
+    /// with a check of when each shows; every frame the screen is up, <see cref="Arrange"/>
+    /// builds what is missing, shows what applies, decides the game's two chest buttons and
+    /// places everything, so no owner depends on another's patch running first.
     /// </summary>
     internal static class PanelButtons
     {
         /// <summary>The space between two buttons, in UI pixels.</summary>
-        internal const float Gap = 6f;
+        private const float Gap = 6f;
 
         private static readonly Dictionary<string, Sprite> icons = new Dictionary<string, Sprite>();
 
+        /// <summary>Which panel an icon button stands beside.</summary>
+        internal enum Column
+        {
+            Inventory,
+            Chest,
+        }
+
+        /// <summary>Which of the game's chest buttons a text button stands in for while it is hidden.</summary>
+        internal enum Spot
+        {
+            TakeAll,
+            StackAll,
+        }
+
+        private sealed class IconEntry
+        {
+            internal Column Column;
+            internal int Order;
+            internal string Name;
+            internal string Icon;
+            internal string Title;
+            internal string Tooltip;
+            internal UnityAction OnClick;
+            internal Func<InventoryGui, bool> Visible;
+            internal Button Button;
+        }
+
+        private sealed class TextEntry
+        {
+            internal TextButton Button;
+            internal Spot Spot;
+            internal Func<InventoryGui, bool> Visible;
+            internal Action<InventoryGui> Refresh;
+        }
+
+        /// <summary>Every icon button, by column and then by its place in the column.</summary>
+        private static readonly List<IconEntry> iconButtons = new List<IconEntry>();
+
+        /// <summary>Every text button, Take all's spot first.</summary>
+        private static readonly List<TextEntry> textButtons = new List<TextEntry>();
+
+        /// <summary>
+        /// Hands an icon button over, to be built the first time <paramref name="visible"/> says
+        /// it shows and laid out every frame from then on. <paramref name="order"/> is its place
+        /// in its column from the top; only buttons that show take a place, so a column closes
+        /// up around whatever is hidden. <paramref name="title"/> and <paramref name="tooltip"/>
+        /// are $omp_ tokens from <see cref="Translations"/>: UITooltip localizes both when it
+        /// shows the tooltip, so they follow a language change without the button being rebuilt.
+        /// </summary>
+        internal static void Add(Column column, int order, string name, string icon, string title,
+            string tooltip, UnityAction onClick, Func<InventoryGui, bool> visible)
+        {
+            iconButtons.Add(new IconEntry
+            {
+                Column = column,
+                Order = order,
+                Name = name,
+                Icon = icon,
+                Title = title,
+                Tooltip = tooltip,
+                OnClick = onClick,
+                Visible = visible,
+            });
+            iconButtons.Sort((a, b) => a.Column != b.Column ? a.Column.CompareTo(b.Column) : a.Order.CompareTo(b.Order));
+        }
+
+        /// <summary>
+        /// Hands a text button over; a second call with the same button is ignored.
+        /// <paramref name="refresh"/> runs on every frame it shows, before it is placed, and is
+        /// where its owner sets the label and the tooltip.
+        /// </summary>
+        internal static void Add(TextButton button, Spot spot, Func<InventoryGui, bool> visible,
+            Action<InventoryGui> refresh)
+        {
+            if (textButtons.Exists(e => e.Button == button))
+            {
+                return;
+            }
+            textButtons.Add(new TextEntry { Button = button, Spot = spot, Visible = visible, Refresh = refresh });
+            textButtons.Sort((a, b) => a.Spot.CompareTo(b.Spot));
+        }
+
         /// <summary>The side of a button: the Take all button's height, so it matches the panel.</summary>
-        internal static float Size(InventoryGui gui)
+        private static float Size(InventoryGui gui)
         {
             Button template = gui != null ? gui.m_takeAllButton : null;
             return template != null ? ((RectTransform)template.transform).rect.height : 32f;
         }
 
         /// <summary>
-        /// A new button under <paramref name="parent"/>, inactive until its owner places it.
-        /// Null when the panel has no Take all button to copy, in which case there is nothing to
-        /// build a column from and the owner leaves the panel as it is.
-        /// <para>
-        /// <paramref name="title"/> and <paramref name="tooltip"/> are $omp_ tokens from
-        /// <see cref="Translations"/>: UITooltip localizes both when it shows the tooltip, so
-        /// they follow a language change without the button being rebuilt.
-        /// </para>
+        /// A new icon button under <paramref name="parent"/>, inactive until it is placed. Null
+        /// when the panel has no Take all button to copy, in which case there is nothing to build
+        /// a column from and the panel stays as it is.
         /// </summary>
-        internal static Button Create(InventoryGui gui, Transform parent, string name, string icon,
+        private static Button Create(InventoryGui gui, Transform parent, string name, string icon,
             string title, string tooltip, UnityAction onClick)
         {
             Button template = gui != null ? gui.m_takeAllButton : null;
@@ -79,17 +164,153 @@ namespace OdinsMissingPatch
         }
 
         /// <summary>
-        /// Whether the screen is on its way out, in which case an owner leaves its buttons
-        /// exactly as they are. Closing the screen clears the animator's "visible" flag and
-        /// drops <c>m_currentContainer</c> in the same frame, while the chest panel stays up for
-        /// the fade - and one more UpdateContainer still runs on that frame, with the flag
-        /// already read. Reading it as "no chest open" would put the game's Take all and Stack
-        /// all back over the panel, and take our own buttons off it, for the whole fade.
+        /// Whether the screen is on its way out, in which case every button stays exactly as it
+        /// is. Closing the screen clears the animator's "visible" flag and drops
+        /// <c>m_currentContainer</c> in the same frame, while the chest panel stays up for the
+        /// fade - and one more UpdateContainer still runs on that frame, with the flag already
+        /// read. Reading it as "no chest open" would put the game's Take all and Stack all back
+        /// over the panel, and take our own buttons off it, for the whole fade.
         /// </summary>
         internal static bool Closing(InventoryGui gui)
         {
             Animator animator = gui != null ? gui.m_animator : null;
             return animator != null && !animator.GetBool("visible");
+        }
+
+        // ---- The layout ------------------------------------------------------------------------
+
+        /// <summary>Whether the game's Take all and Stack all are hidden behind the chest's column right now.</summary>
+        private static bool vanillaHidden;
+
+        private static int arrangedFrame = -1;
+
+        /// <summary>
+        /// Lays the screen out once a frame. UpdateContainer runs on every frame the screen is
+        /// up, after UpdateInventory and whether or not a chest is open, so both columns are
+        /// settled there. The chest's column stands in for the game's Take all and Stack all:
+        /// while any icon button shows in it those two are hidden and the text buttons take
+        /// their spots, the only free width the chest panel's top band has; otherwise the band
+        /// is full and the text buttons go into the column beside the chest.
+        /// </summary>
+        private static void Arrange(InventoryGui gui)
+        {
+            if (Closing(gui) || arrangedFrame == Time.frameCount)
+            {
+                return;
+            }
+            arrangedFrame = Time.frameCount;
+            bool chestColumn = false;
+            foreach (IconEntry entry in iconButtons)
+            {
+                bool show = entry.Visible(gui) && (entry.Button != null || Build(gui, entry));
+                if (entry.Button != null)
+                {
+                    entry.Button.gameObject.SetActive(show);
+                }
+                chestColumn |= show && entry.Column == Column.Chest;
+            }
+            SetVanilla(gui, !chestColumn);
+            int slot = LayoutChestColumn(gui);
+            LayoutInventoryColumn(gui);
+            foreach (TextEntry entry in textButtons)
+            {
+                if (!entry.Visible(gui) || !entry.Button.Show(gui))
+                {
+                    entry.Button.Hide();
+                    continue;
+                }
+                entry.Refresh(gui);
+                Button at = !vanillaHidden ? null
+                    : entry.Spot == Spot.TakeAll ? gui.m_takeAllButton : gui.m_stackAllButton;
+                entry.Button.Place(gui, at, keepLeft: entry.Spot == Spot.TakeAll, slot: slot);
+                if (at == null)
+                {
+                    slot++;
+                }
+            }
+        }
+
+        private static bool Build(InventoryGui gui, IconEntry entry)
+        {
+            Transform parent = entry.Column == Column.Chest ? gui.m_container : gui.m_player;
+            if (parent == null)
+            {
+                return false;
+            }
+            entry.Button = Create(gui, parent, entry.Name, entry.Icon, entry.Title, entry.Tooltip, entry.OnClick);
+            return entry.Button != null;
+        }
+
+        /// <summary>Only ever restores what it hid, so a button another mod hid stays hidden.</summary>
+        private static void SetVanilla(InventoryGui gui, bool active)
+        {
+            if (active == !vanillaHidden)
+            {
+                return;
+            }
+            vanillaHidden = !active;
+            if (gui.m_takeAllButton != null)
+            {
+                gui.m_takeAllButton.gameObject.SetActive(active);
+            }
+            if (gui.m_stackAllButton != null)
+            {
+                gui.m_stackAllButton.gameObject.SetActive(active);
+            }
+        }
+
+        /// <summary>
+        /// The layout, on the method that runs every frame the screen is up, for the tweaks whose
+        /// icon buttons it places.
+        /// </summary>
+        [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.UpdateContainer))]
+        [Serves(typeof(ChestButtons), typeof(InventoryButtons))]
+        private static class LayOut
+        {
+            private static void Postfix(InventoryGui __instance)
+            {
+                Arrange(__instance);
+            }
+        }
+
+        /// <summary>
+        /// The same layout for the tweaks that only have text buttons here, for whom a failure
+        /// costs just the button. With both classes in, the first to run each frame lays out.
+        /// </summary>
+        [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.UpdateContainer))]
+        [Serves(typeof(QuickStack), typeof(StationRefill), typeof(NearbyCrafting), Optional = true)]
+        private static class LayOutText
+        {
+            private static void Postfix(InventoryGui __instance)
+            {
+                Arrange(__instance);
+            }
+        }
+
+        /// <summary>
+        /// The inventory screen goes with the world on the way back to the main menu, and every
+        /// button on it with it; the next world builds a new screen. This is where that is
+        /// heard, once, so no button has to be tested for life every frame: every reference is
+        /// let go, to be made afresh on the new screen the first time it shows, and the new
+        /// screen's Take all and Stack all were never hidden. A text button left out while this
+        /// is not in rebuilds anyway, since a destroyed button reads as missing.
+        /// </summary>
+        [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.OnDestroy))]
+        [Serves(typeof(ChestButtons), typeof(InventoryButtons))]
+        private static class ScreenDestroyed
+        {
+            private static void Postfix()
+            {
+                foreach (IconEntry entry in iconButtons)
+                {
+                    entry.Button = null;
+                }
+                foreach (TextEntry entry in textButtons)
+                {
+                    entry.Button.Forget();
+                }
+                vanillaHidden = false;
+            }
         }
 
         // ---- Where things are ------------------------------------------------------------------
@@ -98,7 +319,7 @@ namespace OdinsMissingPatch
         /// Puts a rect's centre at <paramref name="center"/>, measured from its parent's bottom
         /// left corner, whatever it was anchored to before; the size is kept.
         /// </summary>
-        internal static void Pin(RectTransform rect, Vector2 center)
+        private static void Pin(RectTransform rect, Vector2 center)
         {
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.zero;
@@ -126,7 +347,7 @@ namespace OdinsMissingPatch
         /// the panel's background plus a gap. The readout boxes' own rects overlap that border,
         /// so lining up with them would put a button on the panel's edge.
         /// </summary>
-        internal static float ColumnLeft(RectTransform panel)
+        private static float ColumnLeft(RectTransform panel)
         {
             return panel.rect.width + Overhang(panel).x + Gap;
         }
@@ -136,7 +357,7 @@ namespace OdinsMissingPatch
         /// bottom: level with the top of the panel's background, so the buttons read as part
         /// of the panel they belong to.
         /// </summary>
-        internal static float ColumnTop(RectTransform panel)
+        private static float ColumnTop(RectTransform panel)
         {
             return panel.rect.height + Overhang(panel).y;
         }
@@ -174,29 +395,18 @@ namespace OdinsMissingPatch
                 Mathf.Max(min.x, max.x) + origin.x, Mathf.Max(min.y, max.y) + origin.y);
         }
 
-        // ---- The column beside the inventory ---------------------------------------------------
-
-        private static readonly List<KeyValuePair<int, Button>> column = new List<KeyValuePair<int, Button>>();
-
-        /// <summary>
-        /// Enters a button into the column beside the inventory panel; <paramref name="order"/>
-        /// is its place from the top. Only active buttons take a place, so the column closes up
-        /// around whatever is hidden.
-        /// </summary>
-        internal static void Enlist(Button button, int order)
+        /// <summary>Whether an icon button is in the column and showing this frame.</summary>
+        private static bool Showing(IconEntry entry, Column column)
         {
-            column.Add(new KeyValuePair<int, Button>(order, button));
-            column.Sort((a, b) => a.Key.CompareTo(b.Key));
+            return entry.Column == column && entry.Button != null && entry.Button.gameObject.activeSelf;
         }
 
         /// <summary>
-        /// Stacks the column's active buttons top to bottom from the column's left edge, centred
-        /// in the space between the armour box and the weight box (the whole side of the panel
-        /// when a box is missing). Every owner calls this from its per-frame postfix after
-        /// showing or hiding its buttons, since the column is shared and the last call of a
-        /// frame settles it.
+        /// Stacks the inventory column's showing buttons top to bottom from the column's left
+        /// edge, centred in the space between the armour box and the weight box (the whole side
+        /// of the panel when a box is missing).
         /// </summary>
-        internal static void LayoutInventoryColumn(InventoryGui gui)
+        private static void LayoutInventoryColumn(InventoryGui gui)
         {
             RectTransform panel = gui != null ? gui.m_player : null;
             if (panel == null)
@@ -205,9 +415,9 @@ namespace OdinsMissingPatch
             }
             float size = Size(gui);
             int count = 0;
-            foreach (KeyValuePair<int, Button> entry in column)
+            foreach (IconEntry entry in iconButtons)
             {
-                if (entry.Value != null && entry.Value.gameObject.activeSelf)
+                if (Showing(entry, Column.Inventory))
                 {
                     count++;
                 }
@@ -223,13 +433,13 @@ namespace OdinsMissingPatch
             float stack = count * size + (count - 1) * Gap;
             float x = ColumnLeft(panel) + size * 0.5f;
             float y = (top + bottom) * 0.5f + stack * 0.5f - size * 0.5f;
-            foreach (KeyValuePair<int, Button> entry in column)
+            foreach (IconEntry entry in iconButtons)
             {
-                if (entry.Value == null || !entry.Value.gameObject.activeSelf)
+                if (!Showing(entry, Column.Inventory))
                 {
                     continue;
                 }
-                RectTransform rect = (RectTransform)entry.Value.transform;
+                RectTransform rect = (RectTransform)entry.Button.transform;
                 rect.sizeDelta = new Vector2(size, size);
                 Pin(rect, new Vector2(x, y));
                 y -= size + Gap;
@@ -237,52 +447,33 @@ namespace OdinsMissingPatch
         }
 
         /// <summary>
-        /// The inventory screen goes with the world on the way back to the main menu, and every
-        /// button on it with it; the next world builds a new screen. This is where that is
-        /// heard, once, so no owner has to test its buttons for life every frame: the shared
-        /// column is emptied and each owner lets go of its own, to make them afresh on the new
-        /// screen the first time it needs them.
+        /// Stacks the chest column's showing buttons beside the chest panel from the top down,
+        /// the first one level with the top of the panel, and says how many places they took.
         /// </summary>
-        [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.OnDestroy))]
-        [Serves(typeof(ChestButtons), typeof(InventoryButtons))]
-        private static class ScreenDestroyed
-        {
-            private static void Postfix()
-            {
-                column.Clear();
-                ChestButtons.Forget();
-                InventoryButtons.Forget();
-            }
-        }
-
-        // ---- The column beside the chest -------------------------------------------------------
-
-        /// <summary>
-        /// Stacks <paramref name="buttons"/> in one column beside the chest panel, in the order
-        /// given from the top down, the first one level with the top of the panel. Null entries
-        /// are skipped.
-        /// </summary>
-        internal static void LayoutChestColumn(InventoryGui gui, IList<Button> buttons)
+        private static int LayoutChestColumn(InventoryGui gui)
         {
             RectTransform panel = gui != null ? gui.m_container : null;
             if (panel == null)
             {
-                return;
+                return 0;
             }
             float size = Size(gui);
             float x = ColumnLeft(panel) + size * 0.5f;
             float y = ColumnTop(panel) - size * 0.5f;
-            foreach (Button button in buttons)
+            int used = 0;
+            foreach (IconEntry entry in iconButtons)
             {
-                if (button == null)
+                if (!Showing(entry, Column.Chest))
                 {
                     continue;
                 }
-                RectTransform rect = (RectTransform)button.transform;
+                RectTransform rect = (RectTransform)entry.Button.transform;
                 rect.sizeDelta = new Vector2(size, size);
                 Pin(rect, new Vector2(x, y));
                 y -= size + Gap;
+                used++;
             }
+            return used;
         }
 
         /// <summary>
@@ -314,13 +505,13 @@ namespace OdinsMissingPatch
                 }
                 else
                 {
-                    Debug.LogWarning("[OdinsMissingPatch] icon missing: " + name + ".png, looked in "
+                    OdinsMissingPatchPlugin.Log.LogWarning("icon missing: " + name + ".png, looked in "
                         + Path.Combine(dir, "icons") + " and " + dir);
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[OdinsMissingPatch] could not load icon " + name + ": " + e.Message);
+                OdinsMissingPatchPlugin.Log.LogWarning("could not load icon " + name + ": " + e.Message);
             }
             icons[name] = sprite;
             return sprite;
@@ -361,7 +552,7 @@ namespace OdinsMissingPatch
                     : null;
                 if (loadImage == null)
                 {
-                    Debug.LogWarning("[OdinsMissingPatch] ImageConversion.LoadImage not found; icons stay blank");
+                    OdinsMissingPatchPlugin.Log.LogWarning("ImageConversion.LoadImage not found; icons stay blank");
                     return false;
                 }
             }
@@ -456,6 +647,198 @@ namespace OdinsMissingPatch
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// A copy of the chest panel's Take all button that keeps its label instead of trading it
+        /// for an icon: the game's skin, hover tint and click sound, with words of our own and a
+        /// width cut to fit them. It is built the first time it is shown and kept from then on,
+        /// and placed on every frame, since where it belongs follows whether the game's two
+        /// buttons are hidden and what it says follows the chest. Its owner makes it, hands it
+        /// to <see cref="Add(TextButton, Spot, Func{InventoryGui, bool}, Action{InventoryGui})"/>
+        /// and sets its words from the refresh it hands over with it.
+        /// </summary>
+        internal sealed class TextButton
+        {
+            /// <summary>The room between the label and each end of the button, in UI pixels.</summary>
+            private const float Margin = 16f;
+
+            private readonly string name;
+            private readonly UnityAction onClick;
+
+            private Button button;
+            private UITooltip tip;
+            private string label;
+            private string tooltip;
+            private Component labelText;
+            private PropertyInfo labelWidth;
+
+            internal TextButton(string name, UnityAction onClick)
+            {
+                this.name = name;
+                this.onClick = onClick;
+            }
+
+            /// <summary>
+            /// Shows the button, building it the first time. False when the panel has no Take all
+            /// button to copy, in which case the caller leaves the panel alone.
+            /// </summary>
+            internal bool Show(InventoryGui gui)
+            {
+                if (button == null && !Create(gui))
+                {
+                    return false;
+                }
+                button.gameObject.SetActive(true);
+                return true;
+            }
+
+            internal void Hide()
+            {
+                if (button != null)
+                {
+                    button.gameObject.SetActive(false);
+                }
+            }
+
+            /// <summary>The screen it was on is gone; the next Show builds it afresh.</summary>
+            internal void Forget()
+            {
+                button = null;
+            }
+
+            /// <summary>
+            /// Either in the spot of the vanilla button <paramref name="at"/>, keeping the edge
+            /// that button is lined up on - its left for Take all, its right for Stack all -
+            /// while the extra width grows the other way, or, without one, in the column beside
+            /// the panel, <paramref name="slot"/> places down from its top edge.
+            /// </summary>
+            internal void Place(InventoryGui gui, Button at, bool keepLeft, int slot)
+            {
+                RectTransform takeAll = gui.m_takeAllButton != null
+                    ? (RectTransform)gui.m_takeAllButton.transform : null;
+                if (takeAll == null)
+                {
+                    return;
+                }
+                float height = takeAll.rect.height;
+                float width = Mathf.Max(takeAll.rect.width, LabelWidth() + 2f * Margin);
+                RectTransform rect = (RectTransform)button.transform;
+                rect.sizeDelta = new Vector2(width, height);
+                RectTransform spot = at != null ? (RectTransform)at.transform : null;
+                if (spot == null)
+                {
+                    RectTransform panel = gui.m_container;
+                    Pin(rect, new Vector2(
+                        ColumnLeft(panel) + width * 0.5f,
+                        ColumnTop(panel) - height * 0.5f - slot * (height + Gap)));
+                    return;
+                }
+                rect.anchorMin = spot.anchorMin;
+                rect.anchorMax = spot.anchorMax;
+                rect.pivot = spot.pivot;
+                float grown = width - spot.rect.width;
+                rect.anchoredPosition = spot.anchoredPosition
+                    + new Vector2(keepLeft ? grown * (1f - spot.pivot.x) : -grown * spot.pivot.x, 0f);
+            }
+
+            /// <summary>
+            /// How wide the label wants to be for its current text, from the text's own
+            /// preferred width (a TextMeshPro property, read by reflection since that assembly
+            /// is not referenced). Zero when there is no label to ask.
+            /// </summary>
+            private float LabelWidth()
+            {
+                if (labelText == null)
+                {
+                    Transform text = button.transform.Find("Text");
+                    if (text == null)
+                    {
+                        return 0f;
+                    }
+                    foreach (Component component in text.GetComponents<Component>())
+                    {
+                        PropertyInfo property = component.GetType().GetProperty("preferredWidth", typeof(float));
+                        if (property != null && property.CanRead)
+                        {
+                            labelText = component;
+                            labelWidth = property;
+                            break;
+                        }
+                    }
+                }
+                return labelText != null ? (float)labelWidth.GetValue(labelText, null) : 0f;
+            }
+
+            private bool Create(InventoryGui gui)
+            {
+                Button takeAll = gui.m_takeAllButton;
+                if (takeAll == null)
+                {
+                    return false;
+                }
+                GameObject go = UnityEngine.Object.Instantiate(takeAll.gameObject, takeAll.transform.parent);
+                go.name = name;
+                button = go.GetComponent<Button>();
+                if (button == null)
+                {
+                    UnityEngine.Object.Destroy(go);
+                    return false;
+                }
+                button.onClick = new Button.ButtonClickedEvent();
+                button.onClick.AddListener(onClick);
+                go.transform.SetSiblingIndex(takeAll.transform.GetSiblingIndex());
+                tip = Tooltip(gui, go);
+                label = null;
+                tooltip = null;
+                labelText = null;
+                labelWidth = null;
+                return true;
+            }
+
+            /// <summary>
+            /// The label is a TextMeshPro text, which is not among the staged reference
+            /// assemblies, so it is set through the one property both it and a legacy Text have.
+            /// <paramref name="text"/> is a $omp_ token, which nothing else would translate -
+            /// unlike a tooltip, a label on a component is shown exactly as it is written. It is
+            /// translated on the way in and compared translated, so the caller may hand the same
+            /// token over every frame and the label still follows a language change.
+            /// </summary>
+            internal void SetLabel(string text, params string[] words)
+            {
+                if (Localization.instance != null)
+                {
+                    text = Localization.instance.Localize(text, words);
+                }
+                if (text == label)
+                {
+                    return;
+                }
+                label = text;
+                foreach (Component component in button.GetComponentsInChildren<Component>(true))
+                {
+                    PropertyInfo property = component.GetType().GetProperty("text", typeof(string));
+                    if (property != null && property.CanWrite)
+                    {
+                        property.SetValue(component, text, null);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// The hover text. The copy comes without a `UITooltip`, so <see cref="Tooltip"/>
+            /// made one when the button was built; without it there is nothing to write to.
+            /// </summary>
+            internal void SetTooltip(string topic, string text)
+            {
+                if (text == tooltip || tip == null)
+                {
+                    return;
+                }
+                tooltip = text;
+                tip.m_topic = topic;
+                tip.m_text = text;
+            }
         }
     }
 }

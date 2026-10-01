@@ -16,7 +16,7 @@ namespace OdinsMissingPatch
     ///
     /// A slot holding a marked kind shows its amount in yellow (<see cref="ShowMarks"/>), but a
     /// marked kind the chest holds none of has no slot, so the list is shown whole only in the
-    /// chest panel's Clear favourites button and its tooltip.
+    /// chest panel's Clear favourites button (<see cref="ClearButton"/>) and its tooltip.
     ///
     /// The list is a string on the chest's ZDO, so it persists, survives the chest being emptied
     /// and is the same for every client. Item names are the shared name (a localization token,
@@ -29,8 +29,8 @@ namespace OdinsMissingPatch
 
         private const char Separator = '\n';
 
-        /// <summary>Whether a chest's favourites mean anything right now: the two tweaks that read them.</summary>
-        internal static bool Used => QuickStack.Instance.On || ChestButtons.Instance.On;
+        /// <summary>Whether a chest's favourites mean anything right now: a tweak that reads them is on.</summary>
+        internal static bool Used => Patcher.AnyServedOn(typeof(ShowMarks));
 
         /// <summary>
         /// The chest's marks as one string, for a caller that asks about many items at once (a
@@ -186,8 +186,14 @@ namespace OdinsMissingPatch
         [Serves(typeof(QuickStack), typeof(ChestButtons), Optional = true)]
         private static class ShowMarks
         {
-            /// <summary>NearbyCrafting's yellow, the mod's colour for "a chest is involved".</summary>
-            private static readonly Color Yellow = new Color(1f, 0.84f, 0.3f);
+            /// <summary>
+            /// Harmony runs this as it patches the class, which is when a tweak that reads the
+            /// marks goes on: the moment the Clear favourites button is needed, handed over here.
+            /// </summary>
+            private static void Prepare()
+            {
+                PanelButtons.Add(ClearButton.Button, PanelButtons.Spot.StackAll, ClearButton.Shows, ClearButton.Refresh);
+            }
 
             /// <summary>
             /// <c>InventoryElement.m_amount</c>, a <c>TMP_Text</c>, read as the <c>Graphic</c> it
@@ -255,7 +261,7 @@ namespace OdinsMissingPatch
                     Graphic amount = element != null ? Amount(element) : null;
                     if (amount != null)
                     {
-                        amount.color = Yellow;
+                        amount.color = Palette.ChestYellow;
                         tinted = true;
                     }
                 }
@@ -292,6 +298,74 @@ namespace OdinsMissingPatch
                     }
                 }
                 tinted = false;
+            }
+        }
+
+        /// <summary>
+        /// The chest panel's Clear favourites: a text button (see
+        /// <see cref="PanelButtons.TextButton"/>), in the spot of the game's Stack all while that
+        /// is hidden, shown while the chest's favourites mean anything and it carries some. Its
+        /// label counts the marks and its tooltip names them.
+        /// </summary>
+        private static class ClearButton
+        {
+            internal static readonly PanelButtons.TextButton Button =
+                new PanelButtons.TextButton("OMP_ClearFavorites", ClearOpen);
+
+            /// <summary>The marks, and the language, the count and the tooltip below were written for.</summary>
+            private static string favorites = "";
+            private static int revision = -1;
+            private static int count;
+            private static string tooltip = "";
+
+            internal static bool Shows(InventoryGui gui)
+            {
+                Container chest = gui.m_currentContainer;
+                return chest != null && gui.m_container != null && gui.m_container.gameObject.activeSelf
+                    && Used && Marks(chest).Length > 0;
+            }
+
+            internal static void Refresh(InventoryGui gui)
+            {
+                Describe(gui.m_currentContainer, Marks(gui.m_currentContainer));
+                Button.SetLabel(count == 1 ? "$omp_clear_favourite" : "$omp_clear_favourites", count.ToString());
+                Button.SetTooltip("$omp_favourites_topic", tooltip);
+            }
+
+            /// <summary>
+            /// Counts a chest's marks and writes the tooltip for them, and only when they have
+            /// changed: this runs on every frame the panel is up, and naming the items means
+            /// splitting the list and localizing each one. A language change counts as a change,
+            /// since the names in the tooltip were translated when it was written.
+            /// </summary>
+            private static void Describe(Container chest, string marks)
+            {
+                if (marks == favorites && revision == Translations.Revision)
+                {
+                    return;
+                }
+                favorites = marks;
+                revision = Translations.Revision;
+                count = Names(chest).Count;
+                tooltip = "$omp_favourites_tip_head\n"
+                    + ChestFavorites.Describe(chest)
+                    + "\n\n$omp_favourites_tip_foot";
+            }
+
+            private static void ClearOpen()
+            {
+                InventoryGui gui = InventoryGui.instance;
+                Container chest = gui != null ? gui.m_currentContainer : null;
+                if (chest == null)
+                {
+                    return;
+                }
+                Clear(chest);
+                Player player = Player.m_localPlayer;
+                if (player != null)
+                {
+                    player.Message(MessageHud.MessageType.Center, "$omp_favourites_cleared");
+                }
             }
         }
     }

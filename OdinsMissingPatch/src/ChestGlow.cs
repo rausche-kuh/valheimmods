@@ -3,7 +3,7 @@ using UnityEngine;
 namespace OdinsMissingPatch
 {
     /// <summary>
-    /// A golden pulse over a chest, three seconds long, with a floating text above it: what quick stacking
+    /// A golden pulse over a chest, with a floating text above it: what quick stacking
     /// shows on every chest it put something in. The pulse goes through MaterialMan, the same
     /// route the hammer's repair flash takes, so it needs no material of its own and resets to
     /// whatever the chest looked like before. One component per chest, restarted when hit again.
@@ -11,7 +11,6 @@ namespace OdinsMissingPatch
     internal sealed class ChestGlow : MonoBehaviour
     {
         private const float Duration = 7f;
-        private static readonly Color Gold = new Color(1f, 0.78f, 0.25f);
 
         private float time;
 
@@ -37,7 +36,7 @@ namespace OdinsMissingPatch
 
         /// <summary>
         /// The game's own floating combat text, added locally rather than through its RPC so only
-        /// this client sees it. The Bonus style is the large orange one that lingers for 3s.
+        /// this client sees it. The Bonus style is the large orange one.
         /// </summary>
         private static void ShowText(Vector3 position, string text)
         {
@@ -60,10 +59,9 @@ namespace OdinsMissingPatch
                 Destroy(this);
                 return;
             }
-            // Three pulses over the duration, as long as the floating text stays.
             float pulse = Mathf.Abs(Mathf.Sin(time / Duration * Mathf.PI * 3f));
-            materials.SetValue(gameObject, ShaderProps._EmissionColor, Gold * (0.6f * pulse));
-            materials.SetValue(gameObject, ShaderProps._Color, Color.Lerp(Color.white, Gold, 0.6f * pulse));
+            materials.SetValue(gameObject, ShaderProps._EmissionColor, Palette.Gold * (0.6f * pulse));
+            materials.SetValue(gameObject, ShaderProps._Color, Color.Lerp(Color.white, Palette.Gold, 0.6f * pulse));
         }
 
         private void OnDestroy()

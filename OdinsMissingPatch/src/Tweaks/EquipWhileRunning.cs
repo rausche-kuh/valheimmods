@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using HarmonyLib;
 
 namespace OdinsMissingPatch
@@ -24,12 +23,6 @@ namespace OdinsMissingPatch
         protected override string Summary =>
             "Equip and unequip weapons, shields and armour while sprinting, instead of having " +
             "to slow down first.";
-
-        protected override void Bind(ConfigFile config)
-        {
-            // Nothing beyond the Enabled switch: the patch asks it on every sprint tick, so
-            // switching the tweak off brings the vanilla wipe straight back.
-        }
 
         // CheckRun is the one place the sprint touches the queue, and it makes exactly one
         // ClearActionQueue call, once the drain has been paid and there is still stamina left -

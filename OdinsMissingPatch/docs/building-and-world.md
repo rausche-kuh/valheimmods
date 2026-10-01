@@ -1,6 +1,6 @@
 # Building, stations and the world
 
-StationRange, EndlessFuel, MistClearRange, AreaRepair, AutoRepair.
+Ranges (stations, extensions, demisters), EndlessFuel, AreaRepair, AutoRepair.
 
 - `CraftingStation.m_rangeBuild` is an instance field copied off the prefab, and the area marker
   circle plus the station's `m_effectAreaCollider` are both recomputed from it inside the private
@@ -9,6 +9,13 @@ StationRange, EndlessFuel, MistClearRange, AreaRepair, AutoRepair.
 - What that recompute does *not* touch is `CircleProjector.m_nrOfSegments`, the number of markers
   the ring is laid out with. It is a fixed count from the prefab, so a wider circle is drawn by the
   same markers spread thinner until the ring reads as a dotted line. Scale it with the radius.
+- `Ranges` writes the station, extension and demister radii on load (`CraftingStation.Start`,
+  `StationExtension.Awake`, `Demister.OnEnable`) and again from `OnSettingChanged` over the game's
+  registries (`m_allStations`, `m_allExtensions`, `GetDemisters()`). Each object's vanilla values
+  are kept in a `ConditionalWeakTable` the first time it is seen and the field is set to
+  `vanilla * scale`, so applying it again is harmless and needs no record of the last scale.
+  An extension that fails the game's own `GetZDO() != null` registration check (a placement
+  ghost) is left vanilla, since no rescale could reach it again.
 - A fire's fuel is a float on its ZDO (`ZDOVars.s_fuel`), burnt down by whoever **owns** the ZDO
   in `Fireplace.UpdateFireplace`, a 2s `InvokeRepeating` tick that then calls the private
   `UpdateState()` to switch the flame and the full/half/empty models. Only the owner's writes are
@@ -19,7 +26,7 @@ StationRange, EndlessFuel, MistClearRange, AreaRepair, AutoRepair.
 - A demister's radius is its `ParticleSystemForceField.endRange` (`Demister.m_forceField`, found in
   `Awake`): the force field pushes the mist particles out to it, and `ParticleMist` reads the same
   value to decide where mist is emitted around a demister and whether a point is inside one. One
-  instance field, so scaling it is the whole tweak. `Demister.GetDemisters()` is the list of the
+  instance field, so scaling it is the whole change. `Demister.GetDemisters()` is the list of the
   enabled ones (`m_instances`, kept by `OnEnable`/`OnDisable`). Placement ghosts have their
   `Demister` destroyed by `Player.SetupPlacementGhost`, so they never register. The mist is rendered
   per client, so the wider circle is only seen by clients with the mod — the wisplight ball is a

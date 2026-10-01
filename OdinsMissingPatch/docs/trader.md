@@ -9,7 +9,7 @@ PocketUpgrades.
   game goes on asking the question, so the shop list, the price, the purchase and any condition
   the game grows later stay entirely vanilla, and the patch is a prefix on the one method the
   filter lives in. The vanilla gate of every item touched is kept aside in a
-  `ConditionalWeakTable` and the config is applied to *that* (`MistClearRange`'s idempotent
+  `ConditionalWeakTable` and the config is applied to *that* (`Ranges`' idempotent
   rescale, one bullet of `conventions.md`), so the write can simply be repeated every time the
   shelf is read - no bookkeeping, and switching the tweak off puts the vanilla gate back on the
   next read rather than needing a restore.

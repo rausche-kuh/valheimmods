@@ -8,9 +8,6 @@ namespace OdinsMissingPatch
     // Dev only: src/Dev/ is compiled into Debug builds alone, so this never ships.
     internal sealed partial class CollateralDamage
     {
-        private static readonly BepInEx.Logging.ManualLogSource DevLog =
-            BepInEx.Logging.Logger.CreateLogSource(OdinsMissingPatchPlugin.NAME);
-
         /// <summary>Test scenes: the attacker first, then the peers placed between it and the player.</summary>
         private static readonly Dictionary<string, string[]> Scenes = new Dictionary<string, string[]>
         {
@@ -80,7 +77,7 @@ namespace OdinsMissingPatch
             GameObject prefab = ZNetScene.instance.GetPrefab(name);
             if (prefab == null)
             {
-                DevLog.LogWarning("omp_cd: no prefab " + name);
+                OdinsMissingPatchPlugin.Log.LogWarning("omp_cd: no prefab " + name);
                 return;
             }
             if (ZoneSystem.instance != null)
@@ -117,7 +114,7 @@ namespace OdinsMissingPatch
                     ai != null && ai.IsAlerted(), Localization.instance.Localize(target),
                     WouldDrop(character, collateral, false) ? "loot" : "no loot unless a player finishes it");
                 context.AddString(line);
-                DevLog.LogInfo("omp_cd_info: " + line);
+                OdinsMissingPatchPlugin.Log.LogInfo("omp_cd_info: " + line);
             }
         }
 
@@ -149,7 +146,7 @@ namespace OdinsMissingPatch
 
         private static void Report(string text)
         {
-            DevLog.LogInfo("collateral: " + text);
+            OdinsMissingPatchPlugin.Log.LogInfo("collateral: " + text);
             if (MessageHud.instance != null)
             {
                 MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, text, 0, null, false, false);

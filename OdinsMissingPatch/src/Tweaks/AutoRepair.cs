@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using HarmonyLib;
 using System.Collections.Generic;
 using UnityEngine;
@@ -30,12 +29,6 @@ namespace OdinsMissingPatch
         protected override string Summary =>
             "Opening a crafting station repairs everything you carry that it can repair, " +
             "instead of one item per click of the repair button.";
-
-        protected override void Bind(ConfigFile config)
-        {
-            // Nothing beyond the Enabled switch: the patch asks it every time a station is
-            // opened, so switching the tweak off brings the repair button back into use at once.
-        }
 
         /// <summary>
         /// Every worn item the station is allowed to repair, repaired. The question asked per item

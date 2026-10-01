@@ -57,8 +57,8 @@ namespace OdinsMissingPatch
 
         private static readonly List<TombStone> Graves = new List<TombStone>();
 
-        /// <summary>Death pins found without a grave on the last sweep; a second sweep in a row decides.</summary>
-        private static readonly HashSet<Minimap.PinData> Missing = new HashSet<Minimap.PinData>();
+        /// <summary>Death pins found without a grave; two sweeps in a row remove one.</summary>
+        private static readonly PinSweep GraveSweep = new PinSweep();
 
         private static bool GraveNear(Vector3 pos, long owner)
         {
@@ -82,33 +82,17 @@ namespace OdinsMissingPatch
 
         private static void SweepDeathPins(Minimap map, Vector3 origin)
         {
-            if (ZNetScene.instance == null || Game.instance == null)
+            if (Game.instance == null)
             {
                 return;
             }
             long me = Game.instance.GetPlayerProfile().GetPlayerID();
-            for (int i = map.m_pins.Count - 1; i >= 0; i--)
-            {
-                Minimap.PinData pin = map.m_pins[i];
-                // 3D on purpose: a death in a dungeon is pinned 5000m up, where only a player
-                // inside that dungeon comes near it - and its grave lies up there too.
-                if (pin.m_type != PinType.Death || !pin.m_save
-                    || (pin.m_pos - origin).sqrMagnitude > CheckRange * CheckRange)
-                {
-                    continue;
-                }
-                if (!ZNetScene.instance.IsAreaReady(pin.m_pos) || GraveNear(pin.m_pos, me))
-                {
-                    Missing.Remove(pin);
-                    continue;
-                }
-                if (Missing.Add(pin))
-                {
-                    continue;
-                }
-                Missing.Remove(pin);
-                map.RemovePin(pin);
-            }
+            // The sweep's range is 3D on purpose: a death in a dungeon is pinned 5000m up, where
+            // only a player inside that dungeon comes near it - and its grave lies up there too.
+            GraveSweep.Run(map, origin, CheckRange,
+                pin => pin.m_type == PinType.Death && pin.m_save,
+                pos => GraveNear(pos, me),
+                pin => map.RemovePin(pin));
         }
 
         // --- patches ------------------------------------------------------------------------

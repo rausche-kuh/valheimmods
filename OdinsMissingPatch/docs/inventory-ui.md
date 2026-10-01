@@ -5,54 +5,57 @@
 
 ## Conventions
 
-- A button in the inventory screen comes from `PanelButtons.Create`, a copy of the chest
-  panel's Take all button with the label blanked and an icon in its place, so it keeps the
-  game's skin and sounds without a prefab of our own. Buttons go *beside* the panels, never on
-  them - the panels are grid to the edge, and anything on them covers a slot. They hang off the
-  panel's top right corner, outside its border: `PanelButtons.Pin` works in the parent's
-  bottom-left space so anchors do not matter, `ColumnLeft` is the x every button's left edge
-  starts at (past the panel's stretched `Bkg` border plus a gap - not lined up with the armour
-  and weight boxes, whose rects overlap that border) and `ColumnTop` the y the first button's
-  top edge sits at (level with the border's top). Buttons beside the inventory panel `Enlist`
-  in one column that `LayoutInventoryColumn` centres in the gap between the armour box and
-  the weight box (found through the `m_armor` / `m_weight` texts' parents by reflection, or
-  the panel's `Armor` / `Weight` children, their edges taken in panel space so anchoring does
-  not matter), active buttons only, so it closes up around whatever a tweak hides - at most
-  two show at once, since fill your stacks (chest open) and stack nearby (no chest) never
-  meet, and two is all the gap holds; the chest's four stand in one column from the top down
-  (`LayoutChestColumn`). Each owner places from its
-  per-frame postfix (`UpdateContainer`, `UpdateInventory`) rather than once at creation, since
-  buttons come and go with their tweaks and the panel resizes with the inventory. The two text
-  buttons of the next bullet share the chest's column, but never with those four: they only fall
-  into it while ChestButtons is off, which is exactly when its own buttons are not there.
-  Cancel any drag first (`SetupDragItem(null, null, 1)`), as the game's buttons do, so a held
-  item is not moved under the cursor.
+- `PanelButtons` owns the screen's layout. An owner hands each button over once - a tweak from
+  its constructor, a shared helper from the `Prepare` of the patch class that serves the same
+  tweaks as the button (Harmony runs it as it patches the class) - with its column and place
+  (icon button) or its vanilla spot (text button) and a check of when it shows. `Arrange`, a
+  postfix on `InventoryGui.UpdateContainer`, runs once a frame: builds what shows and is missing,
+  shows and hides, hides the game's Take all and Stack all while any icon button shows in the
+  chest's column (and restores only what it hid), then places both columns and the text
+  buttons. No owner reads another's state or depends on patch order. The postfix is two patch
+  classes on the same target, one serving the icon buttons' tweaks and one, `Optional`, the
+  text buttons' tweaks, with a frame check so it runs once.
+- An icon button is a copy of the chest panel's Take all button with the label blanked and an
+  icon in its place, so it keeps the game's skin and sounds without a prefab of our own. Buttons
+  go *beside* the panels, never on them - the panels are grid to the edge, and anything on them
+  covers a slot. They hang off the panel's top right corner, outside its border: `Pin` works in
+  the parent's bottom-left space so anchors do not matter, `ColumnLeft` is the x every button's
+  left edge starts at (past the panel's stretched `Bkg` border plus a gap - not lined up with the
+  armour and weight boxes, whose rects overlap that border) and `ColumnTop` the y the first
+  button's top edge sits at (level with the border's top). The inventory column is centred in
+  the gap between the armour box and the weight box (found through the `m_armor` / `m_weight`
+  texts' parents by reflection, or the panel's `Armor` / `Weight` children, their edges taken in
+  panel space so anchoring does not matter), showing buttons only, so it closes up around
+  whatever is hidden - at most two show at once, since fill your stacks (chest open) and stack
+  nearby (no chest) never meet, and two is all the gap holds; the chest's column runs from the
+  top down. Everything is placed every frame rather than once at creation, since buttons come
+  and go with their tweaks and the panel resizes with the inventory. Every click cancels any
+  drag first (`SetupDragItem(null, null, 1)`), as the game's buttons do, so a held item is not
+  moved under the cursor.
 - The buttons do not outlive the screen: `InventoryGui` goes with the world on the way back to
   the main menu, and the next world builds a new one, so every static reference to a button
-  turns into a destroyed object (Unity's `== null` is true for it, `.gameObject` throws). That
-  is heard once, in `PanelButtons.ScreenDestroyed` (a postfix on `InventoryGui.OnDestroy`),
-  never tested per frame: it empties the shared column and calls each owner's `Forget`, which
-  drops its references so its create-if-missing check makes new buttons on the new screen -
-  ChestButtons also resets `VanillaHidden` there, since the new screen's Take all and Stack all
-  were never hidden. An owner that keeps buttons is listed in that postfix; `TextButton` needs
-  no entry, its `button == null` is the create-if-missing check itself.
-- A button that keeps its label instead of taking an icon is a `NearbyChests.TextButton`: the
-  same copy of Take all, widened to the label's TMP `preferredWidth` (reflection) plus a margin
-  each side. The two of them - the Nearby use switch and Clear favourites - take the game's Take
-  all and Stack all spots while `ChestButtons.HidesVanilla`, which is the only free width the
-  chest panel's top band has, the chest's name sitting centred between them; each keeps the edge
-  its vanilla button is lined up on (Take all's left, Stack all's right) and grows the other way.
-  Without the vanilla buttons hidden that band is full, and they fall into the column beside the
-  chest panel from its top down, the caller counting the slots it has actually used there. A
-  label or tooltip that costs something to build (Clear favourites names every marked kind) is
-  built only when the state behind it changed, since the postfix runs every frame.
-- A sort never adds or drops a unit: `InventorySorter` merges by the game's own stack rule plus
-  variant and custom data (so a tagged stack never swallows a plain one), refuses without
-  touching anything when the free slots would not hold the items, and only ever writes
-  `m_gridPos` and `m_stack` before one `Changed()`. Items above the chosen row and items the
-  caller keeps hold their slot; the rest flows around them. The backpack's Sort keeps what the
-  player has equipped (`m_equipped` or `Player.IsItemEquiped`, as Quick Stack reads it) and every
-  favourite, so a kept stack is never moved and never merged into either. A chest's Sort keeps
+  turns into a destroyed object (Unity's `== null` is true for it, `.gameObject` throws).
+  `PanelButtons.ScreenDestroyed` (a postfix on `InventoryGui.OnDestroy`) lets go of every button
+  and forgets that the vanilla pair was hidden, since the new screen's never was; the next frame
+  that shows a button builds it afresh.
+- A `PanelButtons.TextButton` keeps its label instead of taking an icon: the same copy of Take
+  all, widened to the label's TMP `preferredWidth` (reflection) plus a margin each side. The two
+  of them - the Nearby use switch (`NearbyChests`) and Clear favourites (`ChestFavorites`) - take
+  the game's Take all and Stack all spots while those are hidden, which is the only free width
+  the chest panel's top band has, the chest's name sitting centred between them; each keeps the
+  edge its vanilla button is lined up on (Take all's left, Stack all's right) and grows the
+  other way. Without the vanilla buttons hidden that band is full, and they fall into the column
+  beside the chest panel below whatever icon buttons stand there. The owner's refresh sets label
+  and tooltip every frame the button shows; one that costs something to build (Clear favourites
+  names every marked kind) is rebuilt only when the state behind it changed.
+- A sort never adds or drops a unit: `InventorySorter` merges by `Merges` - the game's own stack
+  rule plus variant and custom data (so a tagged stack never swallows a plain one), and room
+  under the cap; Fill your stacks uses the same rule - refuses without touching anything when
+  the free slots would not hold the items, and only ever writes `m_gridPos` and `m_stack` before
+  one `Changed()`. Items above the chosen row (the hotbar while `General.KeepHotbar` is on) and
+  items the caller keeps hold their slot; the rest flows around them. The backpack's Sort keeps
+  `Stash.StaysPut` (what is equipped, `m_equipped` or `Player.IsItemEquiped`, and every
+  favourite), so a kept stack is never moved and never merged into either. A chest's Sort keeps
   nothing: neither flag means anything outside the backpack.
 
 ## Game facts
@@ -89,8 +92,8 @@
   local player has equipped - so the game's Stack all empties the hotbar too, and, since it adds
   through `AddItem`, it spills whatever does not fit the existing stacks into free slots. Fill
   your stacks does not use it: `ChestButtons.TopUp` merges unit for unit into the stacks the
-  target already has and stops at their caps, so the button never opens a stack that was not
-  there - take all is the button for that. Both cancel a
+  target already has (`InventorySorter.Merges`) and stops at their caps, so the button never
+  opens a stack that was not there - take all is the button for that. Both cancel a
   drag first with `SetupDragItem(null, null, 1)`. `InventoryGui.UpdateInventory(Player)`
   refreshes the backpack grid every frame the screen is up; `m_player` is the inventory panel's
   `RectTransform`, `m_container` the chest panel's. An item's slot is nothing but
@@ -99,11 +102,14 @@
 - Closing the screen is not one clean frame: `InventoryGui.Hide` clears the animator's `visible`
   flag and drops `m_currentContainer` together, but `Update` read that flag before the input that
   closed it, so one more `UpdateContainer` and `UpdateInventory` run afterwards - with no chest,
-  the chest panel still active, and the fade still to play. Every postfix keyed on "a chest is
-  open" therefore has to ask `PanelButtons.Closing` first and leave its buttons untouched: without
-  it the game's Take all and Stack all come back over the panel and ours come off it, and stack
-  nearby (hidden while a chest is open) joins the inventory column and shifts the two above it,
-  all for the length of the fade.
+  the chest panel still active, and the fade still to play. The layout (and anything else keyed
+  on "a chest is open") therefore asks `PanelButtons.Closing` first and leaves everything
+  untouched: without it the game's Take all and Stack all come back over the panel and ours come
+  off it, and stack nearby (hidden while a chest is open) joins the inventory column and shifts
+  the two above it, all for the length of the fade.
+- `InventoryGui.Update` calls `UpdateInventory` and then `UpdateContainer` on every frame the
+  screen is visible, and nothing else calls either; `UpdateContainer` checks for a chest itself,
+  so a postfix on it runs every frame the screen is up, chest or not, after the backpack grid.
 - The inventory screen's geometry (from the `_GameMain` prefab, see the workspace CLAUDE.md for
   how to read it): the `Player` panel is 570x287 (taller with more rows, `SetInventorySize`),
   its grid fills it to the edges, and the `Container` panel is a child of it, 570x340, hung

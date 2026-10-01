@@ -2,7 +2,6 @@ using HarmonyLib;
 using System;
 using System.IO;
 using System.Reflection;
-using UnityEngine;
 
 namespace OdinsMissingPatch
 {
@@ -61,7 +60,7 @@ namespace OdinsMissingPatch
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning("[OdinsMissingPatch] could not load " + FileName + ": " + e.Message);
+                    OdinsMissingPatchPlugin.Log.LogWarning("could not load " + FileName + ": " + e.Message);
                 }
                 finally
                 {
@@ -88,7 +87,7 @@ namespace OdinsMissingPatch
                 string path = Path.Combine(dir, FileName);
                 if (!File.Exists(path))
                 {
-                    Debug.LogWarning("[OdinsMissingPatch] " + FileName + " missing: " + path);
+                    OdinsMissingPatchPlugin.Log.LogWarning(FileName + " missing: " + path);
                     return false;
                 }
                 csv = File.ReadAllText(path);
@@ -105,7 +104,7 @@ namespace OdinsMissingPatch
             catch (Exception e)
             {
                 csv = null;
-                Debug.LogWarning("[OdinsMissingPatch] could not read " + FileName + ": " + e.Message);
+                OdinsMissingPatchPlugin.Log.LogWarning("could not read " + FileName + ": " + e.Message);
             }
             return csv != null;
         }
@@ -147,7 +146,7 @@ namespace OdinsMissingPatch
             }
             if (loadCsv == null || textAsset == null)
             {
-                Debug.LogWarning("[OdinsMissingPatch] Localization.LoadCSV not found; the mod's words stay untranslated");
+                OdinsMissingPatchPlugin.Log.LogWarning("Localization.LoadCSV not found; the mod's words stay untranslated");
                 return false;
             }
             return true;

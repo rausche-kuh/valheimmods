@@ -6,6 +6,9 @@
 > The mod is actively tested, but co-op playtime may only come every other day. Bugs I find get
 > patched, yet a release might not be tested in co-op until a week after it ships. Consider this
 > an alpha.
+>
+> While it is one, settings get renamed, merged and moved between versions without being carried
+> over: after an update, check the config file for anything you had changed.
 
 The patch Odin forgot: my personal take on the quality of life changes Valheim should have shipped
 years ago, in one mod. Nothing needs a server install.
@@ -29,23 +32,19 @@ because I want them, not because I can argue they are neutral:
 
 ## What it does
 
-- **Station range** — scales a crafting station's build/craft/repair radius, and how far an
-  extension may stand from it, by a multiplier (2 by default).
-- **Comfort range** — widens the radius `Rested` counts furniture in, by the same kind of
-  multiplier.
+- **Ranges** — multipliers (2 by default, `1` is vanilla) on a crafting station's
+  build/craft/repair radius, how far an extension may stand from it, the radius `Rested` counts
+  furniture in, and the circle a wisplight, wisp torch or any other demister keeps clear of mist.
 - **Endless fuel** — tops the fuel back up on every campfire, hearth, torch, brazier and hot tub,
   so nothing that burns for light goes out.
-- **Mist clear range** — scales a demister's push radius (wisplight, wisp torch, anything else),
-  doubled by default.
 - **Combat stamina** — drops the stamina cost of sprinting, jumping, swimming, sneaking, building,
   chopping, mining and swinging while nothing hostile is within 25m and nothing that has noticed
   you is coming for you. A boss fight always costs stamina: every cost is back while a boss health
   bar is on screen. Free swimming means no drowning unless attacked, since drowning starts
   at empty stamina.
-- **Instant comfort** — sitting down grants `Rested` immediately, instead of after the game's ten
-  seconds of Resting.
-- **Fireside healing** — folds `comfort level × 2` health into the game's own ten-second food
-  regen tick while you are Resting.
+- **Resting** — sitting down grants `Rested` immediately, instead of after the game's ten
+  seconds of Resting, and while you rest you heal `comfort level × 2` on the game's own
+  ten-second food regen tick.
 - **Fast portals** — ends the trip as soon as the screen is fully black and the far side has
   loaded, instead of the game's flat eight seconds. Dungeon and cave entrances are instant, with
   no black screen at all.
@@ -55,18 +54,18 @@ because I want them, not because I can argue they are neutral:
 - **Area repair** — after a hammer swing lands, repeats the game's own repair on every damaged
   piece within 10m, closest first. Hold `Left Alt` for the single piece.
 - **Nearby crafting** — while a craft, upgrade or build is being checked or paid for, the game
-  also checks player-placed chests within 20m. Your backpack pays first, the nearest chest pays
+  also checks player-placed chests within 20m (`ChestRange`). Your backpack pays first, the nearest chest pays
   the rest.
 - **Quick stack** — one key (`.`) pushes every carried stack into the nearest chest in range that
   already holds that item, merging into its stacks before taking a slot. Each chest that took
-  something glows with a count. Equipped items, the hotbar (a switch) and favourites stay.
+  something glows with a count. Equipped items, the hotbar (`KeepHotbar`) and favourites stay.
   `Alt`-click an item to make it a favourite.
 - **Chest favourites** — `Alt`-click an item inside an open chest to mark the chest for that kind
   of item. Quick stack and Fill the chest's stacks put it there even when the chest holds none.
-- **Nearby fuel** — lets the four manual add-fuel interactions (fire, smelter, oven, shield
-  generator) draw their one unit from a chest when your backpack has none.
-- **Add all** — `Shift` + Use on a fire, smelter, kiln, oven, cooking station, shield generator or
-  ballista to fill up fuel, ore, food and bolts. Uses backpack first and the chests after.
+- **Station refill** — Use on a fire, smelter, oven or shield generator takes its one unit of
+  fuel from a nearby chest when your backpack has none, and `Shift` + Use on a fire, smelter,
+  kiln, oven, cooking station, shield generator or ballista fills up fuel, ore, food and bolts in
+  one go, backpack first and the chests after. Each half has its own switch.
 - **Auto repair** — on Use of a crafting station repairs all repairable items.
 - **Chest buttons** — replaces Take all and Stack all with five icon buttons placed beside the
   panels rather than on them: **fill your stacks** from the chest, and, down the chest's side,
@@ -113,7 +112,9 @@ because I want them, not because I can argue they are neutral:
 
 `BepInEx/config/rauschekuh.odinsmissingpatch.cfg`, written on first run. Every tweak has an
 `Enabled` switch; the ranges have a multiplier (`1` is vanilla), and the rest have the settings
-named above. Changes apply while the game runs, including from an in-game config manager.
+named above. Two settings in `General` serve several tweaks at once: `ChestRange` (20m), how far
+a chest counts for nearby crafting, quick stack and station refill, and `KeepHotbar` (on), which
+keeps quick stack, Place all, Fill the chest's stacks and Sort off your hotbar row. Changes apply while the game runs, including from an in-game config manager.
 
 A tweak that is switched off when the game starts does not touch the game at all, so if one
 clashes with another mod, switch it off and restart and both run side by side. Switching such a
@@ -178,7 +179,7 @@ on its own or want it server-enforced. **Do not run both of a pair.**
 - Endless fuel follows Digitalroot's
   [Eternal Fire](https://thunderstore.io/c/valheim/p/Digitalroot/Eternal_Fire/), which also covers
   ovens and smelters and is configurable per fire type.
-- Mist clear range and fast portals do what Crystal Ferrai's
+- The mist radius of Ranges and fast portals do what Crystal Ferrai's
   [Clear The Air](https://thunderstore.io/c/valheim/p/Crystal/ClearTheAir/) and
   [Proper Portals](https://thunderstore.io/c/valheim/p/Crystal/ProperPortals/) do; both default to
   vanilla and can be enforced by a server.

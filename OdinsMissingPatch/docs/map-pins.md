@@ -296,8 +296,9 @@ left free for the player's own pins.
    postfix. Every 2s, a death pin within 32m (3D, so a death in a dungeon is checked only from
    inside it, where its grave is too) in an area `ZNetScene.IsAreaReady` calls loaded, with no
    grave of the local player within 8m (XZ) on two sweeps in a row, is removed. It asks the
-   world, like `MinedOut`, so it does not matter who emptied the grave or on which machine it
-   was destroyed; an old death pin whose grave is long gone is cleared on the next visit.
+   world, like `MinedOut` and through the same `PinSweep`, so it does not matter who emptied the
+   grave or on which machine it was destroyed; an old death pin whose grave is long gone is
+   cleared on the next visit.
 
 ## The pieces
 
@@ -309,6 +310,7 @@ left free for the player's own pins.
 | `src/PinBroadcast.cs` | the two routed RPCs: `Send` (one pin to everybody), `RequestOnce` (ask everybody once per session), the handlers, the per-session registration |
 | `src/Tweaks/PinLooks.cs` | section "Pin Looks": a colour per biome, a zoom for dungeons, ore and places, `MapToggles` and `ShowDungeons`/`ShowOre`/`ShowPlaces`, `Icons`; the tint and icons, the hover tooltip, the large map's toggles |
 | `src/Tweaks/DeathPins.cs` | section "Death Pins": `RemoveWithGrave`, `OnlyWithGrave`; the grave registry, the sweep, the no-grave check |
+| `src/PinSweep.cs` | the "still there?" check the mined-out and the grave sweeps share: pins in range and in a loaded area, gone on two sweeps in a row, one instance (its own marks) per sweep |
 | `src/Dev/MapCommands.cs` | Debug only: `omp_locations [filter]` (every `ZoneLocation`: name, biome, interior, game icon, discover label, entrance text, the place rule it falls under — also to the BepInEx log), `omp_pins`, `omp_pins_forget`, `omp_pins_clear` |
 
 Default `PlaceList`, from the game's location table (BetterMap's `Mistlands_GuardTower1-3` no

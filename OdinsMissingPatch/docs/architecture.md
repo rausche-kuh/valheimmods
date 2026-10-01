@@ -6,14 +6,18 @@ hold the conventions and game facts behind each piece.
 | Path | What |
 | --- | --- |
 | `src/OdinsMissingPatch.cs` | BepInEx entry point: binds every tweak's config, then patches all. |
-| `src/Tweak.cs` | The base class: the section, the `Enabled` switch, `On` (wanted and patched), `BindMultiplier`, `OnSettingChanged`. |
+| `src/Tweak.cs` | The base class: the section, the `Enabled` switch, `On` (wanted and patched), `BindMultiplier`, `BindList`, `OnSettingChanged`. |
 | `src/Patcher.cs` | Applies the patches of the tweaks that are on, class by class; a failed class switches off the tweaks it serves. The `Serves`, `Always` and `LoadHook` attributes. |
 | `src/Tweaks/<Name>.cs` | One quality of life change, with its `[HarmonyPatch]` classes nested inside it. |
-| `src/NearbyChests.cs` | Shared by the chest tweaks: the registry of loaded containers, the in-reach rule, `Claim`, the "reach" that widens the backpack, the per-chest opt-out flag, and the chest panel's two text buttons. |
-| `src/ChestFavorites.cs` | The kinds of item a chest is marked to take, on its ZDO: read by QuickStack and ChestButtons, set by an Alt-click in the chest's grid, a yellow amount on a marked slot, listed in the Clear favourites tooltip. |
+| `src/NearbyChests.cs` | Shared by the chest tweaks: the registry of loaded containers, the in-reach rule, `Claim`, the "reach" that widens the backpack, the per-chest opt-out flag and its Nearby use switch. |
+| `src/ChestFavorites.cs` | The kinds of item a chest is marked to take, on its ZDO: read by QuickStack and ChestButtons, set by an Alt-click in the chest's grid, a yellow amount on a marked slot, listed in the Clear favourites button and its tooltip. |
 | `src/ChestGlow.cs` | The golden pulse plus floating text on a chest (`ChestGlow.Flash`). |
 | `src/Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut`, read through `ZInput`. |
-| `src/PanelButtons.cs` | Icon buttons for the inventory screen, cut from the chest panel's Take all button, and where a column beside a panel is. Used by ChestButtons, InventoryButtons and the chest panel's text buttons. |
+| `src/PanelButtons.cs` | The inventory screen's buttons and their layout: icon and text buttons cut from the chest panel's Take all button, registered by their owners, placed once per frame in a column beside each panel or in the vanilla spots, and the switch that hides the game's Take all and Stack all. |
+| `src/Stash.cs` | Putting the backpack away: what may leave it, which chest takes which kind, the move into a chest. Shared by QuickStack and ChestButtons. |
+| `src/SharedSettings.cs` | The settings several tweaks read, in the `General` section: `ChestRange`, `KeepHotbar`. |
+| `src/Palette.cs` | The colours the mod draws with, one per meaning. |
+| `src/PinSweep.cs` | The two-sweep "is it still there?" check for pins near the player, shared by DeathPins and AutoPins' mined-out check. |
 | `src/InventorySorter.cs` | Merge-and-sort of an `Inventory` in place, from a given row down, around items a caller keeps. |
 | `src/MaterialOrder.cs` | The crafting tree derived from `ObjectDB`: which family a material belongs to and how deep it lies. |
 | `src/UniversalPins.cs` | Map pins that belong to nobody (a fixed owner, an `OdinsMissingPatch_<category>` author): the identity, adding, the removed-pin record, and the patches that keep them through a table read and turn a claim into a tick. Used by AutoPins, SharedMapTable and PinLooks. |

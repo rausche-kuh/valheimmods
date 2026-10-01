@@ -3,7 +3,7 @@
 A collection of quality of life changes, each one its own configurable tweak. See the root
 `CLAUDE.md` for the shared build, the scripts and the environment.
 
-Twenty-seven tweaks are in the source, registered in `Tweaks` in `src/OdinsMissingPatch.cs`;
+Twenty-three tweaks are in the source, registered in `Tweaks` in `src/OdinsMissingPatch.cs`;
 `docs/tweaks.md` says what each one does, its scope (client, world state, character) and which
 doc covers it. `ROADMAP.md` is what comes next and the known bugs.
 
@@ -30,6 +30,7 @@ before changing the area, and put back what a change taught.
 | the radial menu and guardian powers | [`docs/radial-menu.md`](docs/radial-menu.md) |
 | equipping, the hotbar, the equip queue | [`docs/equipping.md`](docs/equipping.md) |
 | the trader's shelf and inventory rows | [`docs/trader.md`](docs/trader.md) — the shelf, moving a gate, pocket upgrades |
+| the player marks overlay | [`docs/player-marks.md`](docs/player-marks.md) |
 | the map, its pins, or map tables | [`docs/map-pins.md`](docs/map-pins.md) — design and pieces; game facts in [`docs/map-facts.md`](docs/map-facts.md) |
 | touching ground another mod already covers | [`docs/references.md`](docs/references.md) — the reference checkouts and how this mod differs |
 
@@ -38,18 +39,22 @@ before changing the area, and put back what a change taught.
 | Path | What |
 | --- | --- |
 | `src/OdinsMissingPatch.cs` | Entry point: binds every tweak's config, then patches; the `Tweaks` list. |
-| `src/Tweak.cs` | The base class: section, `Enabled`, `On`, `BindMultiplier`. |
+| `src/Tweak.cs` | The base class: section, `Enabled`, `On`, `BindMultiplier`, `BindList`. |
+| `src/SharedSettings.cs` | Settings several tweaks read (`General`): `ChestRange`, `KeepHotbar`. |
+| `src/Palette.cs` | The colours the mod draws with. |
 | `src/Patcher.cs` | Patches the tweaks that are on, class by class; `Serves`, `Always`, `LoadHook`. |
 | `src/Tweaks/<Name>.cs` | One tweak, its `[HarmonyPatch]` classes nested inside. |
-| `src/NearbyChests.cs` | The chest tweaks' registry, reach, `Claim`, opt-out, text buttons. |
-| `src/ChestFavorites.cs` | The item kinds a chest is marked to take, on its ZDO. |
+| `src/NearbyChests.cs` | The chest tweaks' registry, reach, `Claim`, opt-out and its switch. |
+| `src/ChestFavorites.cs` | The item kinds a chest is marked to take, on its ZDO; Clear favourites. |
+| `src/Stash.cs` | What may leave the backpack, which chest takes it, the move. |
 | `src/ChestGlow.cs` | The golden pulse and floating text on a chest. |
 | `src/Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut` through `ZInput`. |
-| `src/PanelButtons.cs` | Icon buttons for the inventory screen and where they go. |
+| `src/PanelButtons.cs` | The inventory screen's buttons, registered by owners, and their layout. |
 | `src/InventorySorter.cs` | Merge-and-sort of an `Inventory` in place. |
 | `src/MaterialOrder.cs` | The crafting tree from `ObjectDB`: family and depth of a material. |
 | `src/UniversalPins.cs` | Map pins that belong to nobody: identity, adding, the removed-pin record. |
 | `src/PinBroadcast.cs` | Routed RPCs handing auto pins to every player online. |
+| `src/PinSweep.cs` | The two-sweep "still there?" check for pins near the player. |
 | `src/Translations.cs` | Feeds `assets/translations.csv` to the game's localization. |
 | `src/Dev/` | `omp_*` console commands, Debug builds only. |
 | `assets/` | Button and map pin icons, `translations.csv`. |

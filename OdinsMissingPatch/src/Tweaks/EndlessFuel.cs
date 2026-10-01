@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using HarmonyLib;
 
 namespace OdinsMissingPatch
@@ -25,12 +24,6 @@ namespace OdinsMissingPatch
         protected override string Summary =>
             "Fires, torches, braziers and the hot tub never run out of fuel: whatever burns fuel " +
             "to give light stays lit once it is lit.";
-
-        protected override void Bind(ConfigFile config)
-        {
-            // Nothing beyond the Enabled switch: the patch reads it each tick, so switching the
-            // tweak off simply lets the fires burn down again from full.
-        }
 
         /// <summary>
         /// UpdateFireplace is the fire's two second tick: the owner of the ZDO burns fuel for the
