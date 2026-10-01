@@ -386,11 +386,16 @@ namespace OdinsPaths
             // Their own stages, or the frame watch puts a slow harbour down to the clearing.
             Progress.Stage("Building the harbours", ClearShare, ClearShare);
             yield return OdinsPaths.Landings.Place(outcome.Trail, structures, outcome.Landings, last.Origin.Position, doorPaths);
-            // The harbour buildings' doors fork off the road, written after it.
+            // The harbour buildings' doors fork off the road, written after it; then the ground
+            // levelled under each building, around what the path levelled.
             Progress.Stage("Paths to the harbour buildings", ClearShare, ClearShare);
             foreach (Buildings.DoorPath path in doorPaths)
             {
                 yield return TerrainWriter.Write(path.Trail, locations, path.Structures, outcome.Written);
+                if (path.Pad != null && path.PadStructures != null)
+                {
+                    yield return TerrainWriter.WritePad(path.Pad, locations, path.PadStructures, outcome.Written);
+                }
                 yield return Clearing.Clear(path.Trail, outcome.Cleared);
             }
             Progress.Stage("Lamps", ClearShare, ClearShare);

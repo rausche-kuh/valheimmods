@@ -79,6 +79,8 @@ namespace OdinsPaths
         /// <summary>Loose pieces some deck pieces get, clutterChance each.</summary>
         public string[] clutter;
         public float clutterChance;
+        /// <summary>A building that fits nowhere at a harbour gives way to the building of this name; none: to nothing.</summary>
+        public string fallback;
         public List<BlueprintPiece> pieces = new List<BlueprintPiece>();
         public List<BlueprintSpot> spots = new List<BlueprintSpot>();
 
@@ -333,6 +335,7 @@ namespace OdinsPaths
                 deco = Json.Strings(o, "deco"),
                 clutter = Json.Strings(o, "clutter"),
                 clutterChance = Json.Float(o, "clutterChance"),
+                fallback = Json.String(o, "fallback"),
             };
             foreach (Dictionary<string, object> p in Json.Objects(o, "pieces"))
             {
@@ -448,7 +451,11 @@ namespace OdinsPaths
             s.Append("  \"roofReach\": ").Append(F(blueprint.RoofReach)).Append(",\n");
             s.Append("  \"deco\": ").Append(Strings(blueprint.deco)).Append(",\n");
             s.Append("  \"clutter\": ").Append(Strings(blueprint.clutter)).Append(",\n");
-            s.Append("  \"clutterChance\": ").Append(F(blueprint.clutterChance)).Append("\n");
+            s.Append("  \"clutterChance\": ").Append(F(blueprint.clutterChance)).Append(string.IsNullOrEmpty(blueprint.fallback) ? "\n" : ",\n");
+            if (!string.IsNullOrEmpty(blueprint.fallback))
+            {
+                s.Append("  \"fallback\": ").Append(Quote(blueprint.fallback)).Append("\n");
+            }
             s.Append("}\n");
             string plan = Path.ChangeExtension(path, ".blueprint");
             File.WriteAllLines(plan, WritePlan(blueprint).ToArray());

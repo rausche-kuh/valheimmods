@@ -41,8 +41,10 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   dock, old format) and `WoodHut` (the one building). Every biome builds those until it has
   its own; the user makes them with PlanBuild (`docs/docks.md`). No building joins a dock yet
   (a `dock` sign).
-- **Harbour buildings on the terrain:** fit a building and its door to the ground at the door
-  (today the floor goes at the highest ground and the door path follows the ground).
+- **Harbour placement, the rest** (`docs/placement.md`; the quay, door heights, pads, scored
+  sites and the fallback onto the dock were built 2026-10-01, see "To check in game"): steps
+  at a door too steep for a path, a dock platform that carries a hut, clutter as the last
+  fallback, a `docks check` pass; bridges on the same base (both ends pinned like the quay).
 - **The game's harbours:** **find** the swamp location that looks like a dock (not named like
   one; the `SwampHut*` stand on log piles) and whether it can serve as the Mistlands piers do;
   spurs landing at a pier.
@@ -77,7 +79,8 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   (59-367 ms, roads with sea crossings) were the harbours being built, put down to the clearing.
   They now build one per frame under their own stage - check which stage the next growth names,
   and split a harbour's dock from its buildings if one harbour alone is still a hitch.
-- **Docks and harbour buildings** (`docs/docks.md`): never run yet.
+- **Docks and harbour buildings** (`docs/docks.md`): never run yet; the quay and the pads
+  (2026-10-01) with them - its "To check in game" list.
 - **2026-10-01 changes:** no grass in a dirt/stone fade (`Trail.Handover`), a player's broken
   boulder (`*_frac`) cleared off a road, no "more than one terrain compiler" warnings in the log.
 - **Other:** leaving the world mid-search, `paths reset` on a copy, Black Forest clearing, a lay

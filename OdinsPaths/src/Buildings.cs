@@ -6,19 +6,25 @@ namespace OdinsPaths
     /// <summary>
     /// The old buildings of a new harbour - huts, sheds, storehouses: building blueprints of the
     /// land's biome (<see cref="Blueprints"/>), a different one each while there are, raised and
-    /// weathered by <see cref="Builder"/>. Two kinds:
+    /// weathered by <see cref="Builder"/>. Placed as Minecraft's villages place a house, by the
+    /// way in and not by the footprint (<c>docs/placement.md</c>):
     ///
-    /// - **On their own**, placed by their lowest door (<see cref="Builder.Entry"/>): somewhere along
-    ///   the road inland of the dock, on either side, the door facing it
-    ///   <see cref="NearestDoor"/> to <see cref="FarthestDoor"/> past its levelled edge, and a
-    ///   dirt path forking off the road to the door (<see cref="DoorPath"/>, written by the caller
-    ///   after the road). Where the ground is dry, no steeper than <see cref="MaxRise"/> across,
-    ///   clear of structures, locations, the road and the other door paths. Its floor is at the
-    ///   highest ground under it, and its piles reach down to the rest.
-    /// - **Joined to the dock**, a building with a "dock" spot: that spot on the edge of the dock's
-    ///   deck, level with it, on either side, the building off the dock, over water no deeper than
-    ///   the dock's piles reach. No door path: it is entered from the dock.
+    /// - **Beside the road**, by their lowest door (<see cref="Builder.Entry"/>): the door facing
+    ///   the road <see cref="NearestDoor"/> to <see cref="FarthestDoor"/> past its edge, its height
+    ///   taken from the road's - no more above or below it than a path at <see cref="DoorGrade"/>
+    ///   climbs -, and the ground under the building levelled to its floor (a <see cref="Pad"/>):
+    ///   cut down where it is higher, filled a little where it is lower, the piles carrying the
+    ///   rest. Every place along the road inland of the dock, on either side, is weighed by the
+    ///   ground it moves and how far the door is above or below the road, and the cheapest wins.
+    ///   A dirt path forks off the road to the door, ramped from the road's height to the door's
+    ///   (<see cref="DoorPath"/>, written by the caller after the road, then the pad).
+    /// - **Onto the dock**: a building with a "dock" spot has that spot on the edge of the dock's
+    ///   deck; one without has its door there. Level with the deck, off either side, over water no
+    ///   deeper than the dock's piles reach. No door path: it is entered from the dock.
     ///
+    /// A building on its own that finds no place beside the road is tried onto the dock, and the
+    /// dock first where the land beside the road is steep (<see cref="Steep"/>); a blueprint that
+    /// fits nowhere gives way to its <c>fallback</c>, as a Minecraft pool falls back to another.
     /// Trees and rocks on a building's footprint are cleared, now and when its zone is generated
     /// later (<see cref="Clearing"/>). Server only.
     /// </summary>
@@ -28,13 +34,35 @@ namespace OdinsPaths
         private const float From = 4f;
         private const float To = 40f;
         private const float Step = 3f;
-        /// <summary>How far a door stands off the road's levelled edge, at least and at most.</summary>
+        /// <summary>How far a door stands off the road's levelled edge, at least and at most, and the step between tries.</summary>
         private const float NearestDoor = 1f;
         private const float FarthestDoor = 5f;
+        private const float SetbackStep = 2f;
         /// <summary>A door path ends this far short of its door, so it is not levelled into the threshold.</summary>
         private const float Threshold = 0.3f;
-        /// <summary>The most the ground may rise across a building's footprint: its piles make up the rest.</summary>
-        private const float MaxRise = 2.5f;
+        /// <summary>The steepest a door path climbs or falls from the road's flat edge to the door, rise over run.</summary>
+        private const float DoorGrade = 0.45f;
+        /// <summary>How deep a pad cuts into the ground at most, and how high it fills it.</summary>
+        private const float PadCut = 2f;
+        private const float PadFill = 1f;
+        /// <summary>How far under the pad's fill the ground may still be where the blueprint has piles to carry its floor down.</summary>
+        private const float MaxPiles = 3f;
+        /// <summary>A site's cost per metre cut, filled and left to the piles, averaged over its footprint, and per metre the door is off the road's height.</summary>
+        private const float CutCost = 2f;
+        private const float FillCost = 1f;
+        private const float PileCost = 0.5f;
+        private const float RiseCost = 0.5f;
+        /// <summary>A site's cost per metre its door is set back, and per metre further up the road; and up to how much is added at random, so harbours differ.</summary>
+        private const float SetbackCost = 0.1f;
+        private const float AlongCost = 0.03f;
+        private const float Jitter = 0.3f;
+        /// <summary>The ground under a site is sampled this far apart, and door heights tried this far apart.</summary>
+        private const float Sample = 1.5f;
+        private const float DoorStep = 0.25f;
+        /// <summary>The land beside the road is steep where its ground is this far above or below the road everywhere near the dock.</summary>
+        private const float SteepRise = 2.5f;
+        /// <summary>How many blueprints one's fallbacks lead on to at most.</summary>
+        private const int MaxFallbacks = 3;
         /// <summary>How far above the water its ground has to be everywhere.</summary>
         private const float Dry = 1f;
         /// <summary>A structure this close to its footprint keeps it away.</summary>
@@ -43,14 +71,37 @@ namespace OdinsPaths
         private const float ClearRadius = 1.5f;
 
         /// <summary>
-        /// A dirt path from the road to a building's door, and the structures to write it with:
-        /// all of them but the building's own around its door, so the path reaches the threshold.
+        /// A dirt path from the road to a building's door, the structures to write it with - all
+        /// of them but the building's own around its door, so the path reaches the threshold -,
+        /// and the building's pad with the structures to write that with (all but the building's).
         /// </summary>
         internal sealed class DoorPath
         {
             public Trail Trail;
             public Structures Structures;
             public Vector2 Door;
+            public Pad Pad;
+            public Structures PadStructures;
+            /// <summary>The building's footprint, left out of the pad's structures.</summary>
+            public List<Vector2> Footprint;
+        }
+
+        /// <summary>What every building of one harbour is placed against.</summary>
+        private sealed class Harbour
+        {
+            public Trail Trail;
+            public Landings.Landing Landing;
+            public float LandEnd;
+            public Builder.Result Dock;
+            public bool HasDock;
+            /// <summary>The land beside the road is steep: onto the dock first.</summary>
+            public bool DockFirst;
+            public Structures Structures;
+            /// <summary>The structures without the dock's own pieces, for a building beside it.</summary>
+            public Structures BesideDock;
+            public List<DoorPath> Paths;
+            public Heightmap.Biome Biome;
+            public System.Random Rng;
         }
 
         private static readonly HashSet<string> doorless = new HashSet<string>();
@@ -73,19 +124,30 @@ namespace OdinsPaths
             {
                 return placed;
             }
-            bool hasDock = dock != null && dock.Reason == null && dock.Decks.Count > 0;
+            Harbour harbour = new Harbour
+            {
+                Trail = trail,
+                Landing = landing,
+                LandEnd = landEnd,
+                Dock = dock,
+                HasDock = dock != null && dock.Reason == null && dock.Decks.Count > 0,
+                Structures = structures,
+                BesideDock = structures,
+                Paths = new List<DoorPath>(),
+                Biome = biome,
+                Rng = rng,
+            };
+            harbour.DockFirst = harbour.HasDock && Steep(trail, landing, landEnd);
             // Beside the dock, the dock's own pieces are no obstacle.
-            Structures besideDock = structures;
-            if (hasDock && structures != null)
+            if (harbour.HasDock && structures != null)
             {
                 List<Circle> own = new List<Circle>();
                 foreach (Vector2 point in dock.Footprint)
                 {
                     own.Add(new Circle { Center = point, Radius = 0.05f });
                 }
-                besideDock = structures.Without(own);
+                harbour.BesideDock = structures.Without(own);
             }
-            List<DoorPath> paths = new List<DoorPath>();
             HashSet<Blueprint> failed = new HashSet<Blueprint>();
             int built = 0;
             List<string> names = new List<string>();
@@ -97,9 +159,23 @@ namespace OdinsPaths
                 {
                     continue;
                 }
-                Builder.Result result = blueprint.Joint == null
-                    ? BesideRoad(trail, landing, landEnd, blueprint, biome, structures, paths, rng)
-                    : hasDock ? AtDock(trail, blueprint, dock, besideDock, paths, biome, rng) : null;
+                Builder.Result result = Place(harbour, blueprint, out string where);
+                // Nowhere for it: its fallbacks in turn, as a Minecraft pool falls back to another.
+                Blueprint tried = blueprint;
+                for (int depth = 0; result == null && depth < MaxFallbacks; depth++)
+                {
+                    Blueprint next = string.IsNullOrEmpty(tried.fallback) ? null : Blueprints.Named(tried.fallback);
+                    if (next == null || next.IsDock || failed.Contains(next))
+                    {
+                        break;
+                    }
+                    result = Place(harbour, next, out where);
+                    if (result == null)
+                    {
+                        failed.Add(next);
+                    }
+                    tried = next;
+                }
                 if (result == null)
                 {
                     failed.Add(blueprint);
@@ -108,96 +184,276 @@ namespace OdinsPaths
                 foreach (Vector2 point in result.Footprint)
                 {
                     structures?.Add(point);
-                    if (besideDock != structures)
+                    if (harbour.BesideDock != structures)
                     {
-                        besideDock.Add(point);
+                        harbour.BesideDock.Add(point);
                     }
                 }
                 Clearing.ClearAround(result.Footprint, ClearRadius);
                 placed.AddRange(result.Placed);
-                names.Add(result.ToString());
+                names.Add(result + " (" + where + ")");
                 built++;
             }
             if (structures != null && doorPaths != null)
             {
-                // Every building is in the structures now; each path leaves out only its own door.
-                foreach (DoorPath path in paths)
+                // Every building is in the structures now; each path leaves out only its own door,
+                // each pad only its own building.
+                foreach (DoorPath path in harbour.Paths)
                 {
                     path.Structures = structures.Without(new List<Circle> { new Circle { Center = path.Door, Radius = Structures.PieceReach + 0.5f } });
+                    if (path.Pad != null)
+                    {
+                        List<Circle> own = new List<Circle>();
+                        foreach (Vector2 point in path.Footprint)
+                        {
+                            own.Add(new Circle { Center = point, Radius = 0.05f });
+                        }
+                        path.PadStructures = structures.Without(own);
+                    }
                     doorPaths.Add(path);
                 }
             }
             Debug.Log("[OdinsPaths] Harbour at " + trail.Points[landing.Shore].ToString("F0") + ": " + built + " buildings"
-                + (names.Count > 0 ? " - " + string.Join("; ", names) : ""));
+                + (harbour.DockFirst ? ", the land beside the road steep" : "") + (names.Count > 0 ? " - " + string.Join("; ", names) : ""));
             return placed;
         }
 
-        /// <summary>
-        /// A building on its own: the first place along the road, from the dock inland, either
-        /// side, where it fits with its door facing the road <see cref="NearestDoor"/> to
-        /// <see cref="FarthestDoor"/> off it (a random distance first, then from the nearest), and
-        /// the path to that door.
-        /// </summary>
-        private static Builder.Result BesideRoad(Trail trail, Landings.Landing landing, float landEnd, Blueprint blueprint,
-            Heightmap.Biome biome, Structures structures, List<DoorPath> paths, System.Random rng)
+        /// <summary>One blueprint where it may go, in the harbour's order: beside the road or onto the dock; null if neither.</summary>
+        private static Builder.Result Place(Harbour harbour, Blueprint blueprint, out string where)
         {
             List<Builder.Part> parts = Builder.Resolve(blueprint, false);
-            if (!Builder.Entry(parts, out Vector3 foot, out Vector2 inward))
+            where = "onto the dock";
+            if (blueprint.Joint != null)
+            {
+                // Joined to the dock: from the building's middle out through the joint.
+                Vector3 joint = blueprint.Joint.Position;
+                Vector2 onto = new Vector2(joint.x, joint.z) - Builder.Middle(parts);
+                return harbour.HasDock && onto.sqrMagnitude >= 0.01f ? AtDock(harbour, blueprint, parts, joint, onto.normalized) : null;
+            }
+            bool door = Builder.Entry(parts, out Vector3 foot, out Vector2 inward);
+            if (!door && doorless.Add(blueprint.name))
             {
                 // One without a door is placed by its front's middle, as before doors.
-                if (doorless.Add(blueprint.name))
-                {
-                    Debug.LogWarning("[OdinsPaths] Harbour building " + blueprint.name + " has no door: placed by its front's middle.");
-                }
+                Debug.LogWarning("[OdinsPaths] Harbour building " + blueprint.name + " has no door: placed by its front's middle.");
             }
-            for (float d = landEnd + From; d <= landEnd + To; d += Step)
+            Builder.Result result = null;
+            if (harbour.DockFirst && door)
             {
-                Vector2 road = Docks.Along(trail, landing, d, out float _, out Vector2 seaward);
-                int first = rng.Next(2) == 0 ? -1 : 1;
-                for (int k = 0; k < 2; k++)
-                {
-                    Vector2 away = new Vector2(seaward.y, -seaward.x) * (k == 0 ? first : -first);
-                    float edge = trail.Kind.Reach;
-                    float chosen = Mathf.Lerp(NearestDoor, FarthestDoor, (float)rng.NextDouble());
-                    for (float setback = NearestDoor - 1f; setback <= FarthestDoor; setback += 1f)
-                    {
-                        Vector2 door = road + away * (edge + (setback < NearestDoor ? chosen : setback));
-                        Builder.Frame frame = Builder.Frame.Make(door, away, 0f).Entered(foot, inward);
-                        if (!Ground(trail, parts, frame, structures, paths, out float floor) || !PathClear(road + away * edge, door, structures))
-                        {
-                            continue;
-                        }
-                        frame.Floor = floor + foot.y;
-                        Builder.Result result = Raise(blueprint, parts, frame, biome, rng);
-                        paths.Add(new DoorPath
-                        {
-                            Trail = new Trail(new List<Vector2> { road, door - away * Threshold }, RoadKind.Spur),
-                            Door = door,
-                        });
-                        return result;
-                    }
-                }
+                result = AtDock(harbour, blueprint, parts, foot, -inward);
             }
-            return null;
+            if (result == null)
+            {
+                result = BesideRoad(harbour, blueprint, parts, foot, inward, out where);
+            }
+            if (result == null && harbour.HasDock && door && !harbour.DockFirst)
+            {
+                where = "onto the dock";
+                result = AtDock(harbour, blueprint, parts, foot, -inward);
+            }
+            return result;
         }
 
         /// <summary>
-        /// A building joined to the dock: its "dock" spot on the edge of the dock's deck, at the
-        /// deck's height, the building off that side - tried along both edges past the land end,
-        /// from a random place on.
+        /// Whether the land beside the road just inland of the dock is steep everywhere: its ground,
+        /// a few metres off the road on either side, never within <see cref="SteepRise"/> of the
+        /// road's height. A hut there would stand on a pad cut deep into the bank, or high on piles.
         /// </summary>
-        private static Builder.Result AtDock(Trail trail, Blueprint blueprint, Builder.Result dock, Structures structures,
-            List<DoorPath> paths, Heightmap.Biome biome, System.Random rng)
+        private static bool Steep(Trail trail, Landings.Landing landing, float landEnd)
         {
-            List<Builder.Part> parts = Builder.Resolve(blueprint, false);
-            Vector3 joint = blueprint.Joint.Position;
-            // Onto the dock: from the building's middle out through the joint.
-            Vector2 onto = new Vector2(joint.x, joint.z) - Builder.Middle(parts);
-            if (onto.sqrMagnitude < 0.01f)
+            for (float d = landEnd + From; d <= landEnd + From + 12f; d += 4f)
+            {
+                Vector2 road = Docks.Along(trail, landing, d, out float height, out Vector2 seaward);
+                Vector2 side = new Vector2(seaward.y, -seaward.x) * (trail.Kind.Reach + 3f);
+                foreach (Vector2 at in new[] { road + side, road - side })
+                {
+                    if (Mathf.Abs(Ground.Height(at.x, at.y) - height) < SteepRise)
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// A building on its own beside the road: the cheapest place along the road from the dock
+        /// inland, either side, where it fits with its door facing the road <see cref="NearestDoor"/>
+        /// to <see cref="FarthestDoor"/> off it (<see cref="Site"/>), its pad and the path to its door.
+        /// </summary>
+        private static Builder.Result BesideRoad(Harbour harbour, Blueprint blueprint, List<Builder.Part> parts, Vector3 foot, Vector2 inward,
+            out string where)
+        {
+            where = null;
+            Trail trail = harbour.Trail;
+            if (!Box(parts, out Vector2 min, out Vector2 max))
             {
                 return null;
             }
-            onto.Normalize();
+            bool piles = parts.Exists(part => part.Role == Role.Pile);
+            float edge = trail.Kind.Reach;
+            Builder.Frame best = default;
+            Vector2 bestRoad = Vector2.zero;
+            Vector2 bestAway = Vector2.zero;
+            float bestRoadHeight = 0f;
+            float bestFlat = 0f;
+            float bestCost = float.MaxValue;
+            for (float d = harbour.LandEnd + From; d <= harbour.LandEnd + To; d += Step)
+            {
+                Vector2 road = Docks.Along(trail, harbour.Landing, d, out float roadHeight, out Vector2 seaward);
+                float flat = trail.Kind.HalfWidthAt(road) * trail.Kind.FlatFactor;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector2 away = new Vector2(seaward.y, -seaward.x) * side;
+                    for (float setback = NearestDoor; setback <= FarthestDoor + 0.01f; setback += SetbackStep)
+                    {
+                        Vector2 door = road + away * (edge + setback);
+                        Builder.Frame frame = Builder.Frame.Make(door, away, 0f).Entered(foot, inward);
+                        // From the road's flat edge to just short of the door, at the grade a path may climb.
+                        float rise = (edge + setback - Threshold - flat) * DoorGrade;
+                        if (!Site(harbour, min, max, piles, frame, roadHeight, rise, out float doorHeight, out float cost)
+                            || !PathClear(road + away * edge, door, harbour.Structures))
+                        {
+                            continue;
+                        }
+                        cost += setback * SetbackCost + (d - harbour.LandEnd - From) * AlongCost + (float)harbour.Rng.NextDouble() * Jitter;
+                        if (cost < bestCost)
+                        {
+                            bestCost = cost;
+                            best = frame;
+                            best.Floor = doorHeight;
+                            bestRoad = road;
+                            bestAway = away;
+                            bestRoadHeight = roadHeight;
+                            bestFlat = flat;
+                        }
+                    }
+                }
+            }
+            if (bestCost == float.MaxValue)
+            {
+                return null;
+            }
+            best.Pad = new Pad
+            {
+                Frame = best,
+                Min = min - Vector2.one * Pad.Apron,
+                Max = max + Vector2.one * Pad.Apron,
+                Height = best.Height(0f) - Pad.UnderFloor,
+                MaxCut = PadCut,
+                MaxFill = PadFill,
+            };
+            Builder.Result result = Raise(blueprint, parts, best, harbour.Biome, harbour.Rng);
+            Trail path = new Trail(new List<Vector2> { bestRoad, best.Origin - bestAway * Threshold }, RoadKind.Spur);
+            path.Ramp(bestRoadHeight, best.Floor, PadCut + 1f, bestFlat);
+            harbour.Paths.Add(new DoorPath
+            {
+                Trail = path,
+                Door = best.Origin,
+                Pad = best.Pad,
+                Footprint = result.Footprint,
+            });
+            float above = best.Floor - bestRoadHeight;
+            where = "beside the road, its door " + Mathf.Abs(above).ToString("F1") + " m " + (above >= 0f ? "above" : "below") + " it, "
+                + Vector2.Distance(bestRoad, best.Origin).ToString("F1") + " m off its middle";
+            return result;
+        }
+
+        /// <summary>
+        /// Whether a building beside the road stands here, and at what height its door does: the
+        /// one between the road's height less rise and plus rise that moves the least ground for
+        /// its pad - cutting at most <see cref="PadCut"/>, filling <see cref="PadFill"/>, and piles,
+        /// if it has any, carrying its floor <see cref="MaxPiles"/> further down -, and what that
+        /// costs. The ground under its box must be dry, clear of structures, this road, locations
+        /// and the other door paths.
+        /// </summary>
+        private static bool Site(Harbour harbour, Vector2 min, Vector2 max, bool piles, Builder.Frame frame, float roadHeight, float rise,
+            out float door, out float cost)
+        {
+            door = roadHeight;
+            cost = float.MaxValue;
+            Trail trail = harbour.Trail;
+            float water = ZoneSystem.instance.m_waterLevel;
+            int near = NearestPoint(trail, frame.Origin);
+            List<float> heights = new List<float>();
+            float stepX = Mathf.Min(Sample, max.x - min.x + 0.01f);
+            float stepZ = Mathf.Min(Sample, max.y - min.y + 0.01f);
+            for (float x = min.x; x <= max.x + 0.01f; x += stepX)
+            {
+                for (float z = min.y; z <= max.y + 0.01f; z += stepZ)
+                {
+                    Vector2 at = frame.Flat(x, z);
+                    float ground = Ground.Height(at.x, at.y);
+                    if (ground < water + Dry || (harbour.Structures != null && harbour.Structures.Distance(at, Taken) < Taken)
+                        || NearPath(harbour.Paths, at) || OnRoad(trail, near, at) || Clearing.InLocation(at))
+                    {
+                        return false;
+                    }
+                    heights.Add(ground);
+                }
+            }
+            float deepest = PadFill + (piles ? MaxPiles : 0f);
+            for (float height = roadHeight - rise; height <= roadHeight + rise + 0.01f; height += DoorStep)
+            {
+                // The pad's level for a door at this height: just under the floor's top.
+                float level = height - frame.Anchor.y - Pad.UnderFloor;
+                float cut = 0f;
+                float fill = 0f;
+                float carried = 0f;
+                bool fits = true;
+                foreach (float ground in heights)
+                {
+                    float above = ground - level;
+                    if (above > PadCut || -above > deepest)
+                    {
+                        fits = false;
+                        break;
+                    }
+                    cut += Mathf.Max(above, 0f);
+                    fill += Mathf.Clamp(-above, 0f, PadFill);
+                    carried += Mathf.Max(-above - PadFill, 0f);
+                }
+                if (!fits)
+                {
+                    continue;
+                }
+                float here = (cut * CutCost + fill * FillCost + carried * PileCost) / heights.Count + Mathf.Abs(height - roadHeight) * RiseCost;
+                if (here < cost)
+                {
+                    cost = here;
+                    door = height;
+                }
+            }
+            return cost < float.MaxValue;
+        }
+
+        /// <summary>The box around a building's floors, walls, doors and piles, x and z in its blueprint; false if it has none.</summary>
+        private static bool Box(List<Builder.Part> parts, out Vector2 min, out Vector2 max)
+        {
+            min = Vector2.one * float.MaxValue;
+            max = Vector2.one * float.MinValue;
+            foreach (Builder.Part part in parts)
+            {
+                if (part.Solid)
+                {
+                    min = Vector2.Min(min, new Vector2(part.Min.x, part.Min.z));
+                    max = Vector2.Max(max, new Vector2(part.Max.x, part.Max.z));
+                }
+            }
+            return min.x <= max.x;
+        }
+
+        /// <summary>
+        /// A building onto the dock: its joint - a "dock" spot, or the foot of its door - on the
+        /// edge of the dock's deck, at the deck's height, the building off that side, onto pointing
+        /// out of it onto the deck - tried along both edges past the land end, from a random place on.
+        /// </summary>
+        private static Builder.Result AtDock(Harbour harbour, Blueprint blueprint, List<Builder.Part> parts, Vector3 joint, Vector2 onto)
+        {
+            Builder.Result dock = harbour.Dock;
+            if (!harbour.HasDock)
+            {
+                return null;
+            }
             float far = float.MinValue;
             foreach (Bounds deck in dock.Decks)
             {
@@ -209,7 +465,7 @@ namespace OdinsPaths
                 tries.Add(new Vector2(1f, z));
                 tries.Add(new Vector2(-1f, z));
             }
-            int start = tries.Count > 0 ? rng.Next(tries.Count) : 0;
+            int start = tries.Count > 0 ? harbour.Rng.Next(tries.Count) : 0;
             for (int n = 0; n < tries.Count; n++)
             {
                 Vector2 at = tries[(start + n) % tries.Count];
@@ -219,9 +475,9 @@ namespace OdinsPaths
                 }
                 Builder.Frame frame = Builder.Frame.Make(dock.Frame.Flat(x, at.y), dock.Frame.Right * -at.x, dock.Frame.Height(top))
                     .Entered(joint, onto);
-                if (BesideDock(trail, parts, frame, dock, structures, paths))
+                if (BesideDock(harbour.Trail, parts, frame, dock, harbour.BesideDock, harbour.Paths))
                 {
-                    return Raise(blueprint, parts, frame, biome, rng);
+                    return Raise(blueprint, parts, frame, harbour.Biome, harbour.Rng);
                 }
             }
             return null;
@@ -300,52 +556,6 @@ namespace OdinsPaths
                 EnemyChance = Docks.EnemyChance.Value,
             }, rng, result);
             return result;
-        }
-
-        /// <summary>
-        /// Whether the ground under a building's footprint (every metre of the box around its
-        /// floors, walls, doors and piles) will do, and the height its floor (the blueprint's y 0)
-        /// goes at: the highest of it.
-        /// </summary>
-        private static bool Ground(Trail trail, List<Builder.Part> parts, Builder.Frame frame, Structures structures, List<DoorPath> paths, out float floor)
-        {
-            floor = 0f;
-            Vector2 min = Vector2.one * float.MaxValue;
-            Vector2 max = Vector2.one * float.MinValue;
-            foreach (Builder.Part part in parts)
-            {
-                if (part.Solid)
-                {
-                    min = Vector2.Min(min, new Vector2(part.Min.x, part.Min.z));
-                    max = Vector2.Max(max, new Vector2(part.Max.x, part.Max.z));
-                }
-            }
-            if (min.x > max.x)
-            {
-                return false;
-            }
-            float water = ZoneSystem.instance.m_waterLevel;
-            float low = float.MaxValue;
-            float high = float.MinValue;
-            int near = NearestPoint(trail, frame.Origin);
-            for (float x = min.x; x <= max.x + 0.01f; x += Mathf.Min(1f, max.x - min.x + 0.01f))
-            {
-                for (float z = min.y; z <= max.y + 0.01f; z += Mathf.Min(1f, max.y - min.y + 0.01f))
-                {
-                    Vector2 at = frame.Flat(x, z);
-                    float ground = OdinsPaths.Ground.Height(at.x, at.y);
-                    low = Mathf.Min(low, ground);
-                    high = Mathf.Max(high, ground);
-                    if (ground < water + Dry || high - low > MaxRise
-                        || (structures != null && structures.Distance(at, Taken) < Taken) || NearPath(paths, at)
-                        || OnRoad(trail, near, at) || Clearing.InLocation(at))
-                    {
-                        return false;
-                    }
-                }
-            }
-            floor = high + 0.05f;
-            return true;
         }
 
         /// <summary>Whether the way from the road's edge to a door is dry, unbuilt and outside locations.</summary>

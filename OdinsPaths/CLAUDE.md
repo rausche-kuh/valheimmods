@@ -26,6 +26,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `docs/network.md` | The two tiers, progression, traders, bases, storage. |
 | `docs/biomes.md` | What each biome asks of a road. |
 | `docs/docks.md` | Docks and harbour buildings: placement, the blueprint format (PlanBuild's), making them in game or with PlanBuild. |
+| `docs/placement.md` | Fitting docks, buildings, bridges to the terrain: other games, what is built, what is left. |
 | `docs/prior-art.md` | Procedural Roads and `PLAN.md` weighed, why no Jötunn. |
 
 ## Source map
@@ -54,7 +55,8 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `src/Json.cs` | A small JSON reader for the blueprints (`JsonUtility` left their lists empty). |
 | `src/Builder.cs` | Raises a blueprint: weathering, piles to the ground, spots, chests, spawners. |
 | `src/Docks.cs` | A harbour's dock: flush with the road, fitted to the shore. |
-| `src/Buildings.cs` | Old buildings at a harbour: by their door off the road, with a path to it, or joined to the dock. |
+| `src/Buildings.cs` | Old buildings at a harbour: door at the road's height, on a pad, a path to it; or onto the dock. |
+| `src/Pad.cs` | A building's levelled ground. |
 | `src/Traders.cs` | A trader settled at its road's end: the other camps dropped, the icon on every map. |
 | `src/Relics.cs` | The furniture: game pieces copied to recover nothing, refuse the hammer. |
 | `src/Clearing.cs` | Removes trees, rocks and scenery from a path; the `SpawnZone` patch. |

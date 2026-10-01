@@ -237,6 +237,7 @@ namespace OdinsPaths
                 deco = old?.deco,
                 clutter = old?.clutter,
                 clutterChance = old?.clutterChance ?? 0f,
+                fallback = old?.fallback,
             };
             blueprint.IsDock = blueprint.kind == "dock";
             foreach (ZDO zdo in ZDOMan.instance.m_objectsByID.Values)

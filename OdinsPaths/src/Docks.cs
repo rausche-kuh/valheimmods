@@ -8,8 +8,10 @@ namespace OdinsPaths
     /// <summary>
     /// A dock at each new harbour, carrying the road on out to sea: its land end on the road's
     /// middle, where the road is as high as the deck, so the road runs onto the planks without a
-    /// step, and its deck as high as the road 1.5 m inland of the shore (<see cref="Inland"/>) -
-    /// the shore point itself is often the foot of a steep bank the road comes down. Kept between
+    /// step. Its deck is the road's quay, the height the trail held its last metres before the
+    /// shore at (<see cref="Trail.PinQuays"/>); without one, the road's height a little inland of
+    /// the shore (<see cref="Inland"/>) - the shore point itself is often the foot of a steep bank
+    /// the road comes down. Kept between
     /// <see cref="DeckAboveMin"/> and <see cref="DeckAboveMax"/> above the water. The dock is a
     /// blueprint of the land's biome (<see cref="Blueprints"/>), raised and weathered by
     /// <see cref="Builder"/>; one that would stand in water deeper than <see cref="MaxDepth"/>,
@@ -92,7 +94,10 @@ namespace OdinsPaths
         {
             float water = ZoneSystem.instance.m_waterLevel;
             Along(trail, landing, Inland, out float road, out Vector2 _);
-            float deck = DeckHeight(road);
+            // Where the trail holds a quay (Trail.PinQuays), the deck is the quay: the road was laid to it.
+            int quay = landing.Shore + (landing.Shore < landing.Toward ? -1 : 1);
+            bool quayed = quay >= 0 && quay < trail.Points.Count && trail.Quay[quay];
+            float deck = DeckHeight(quayed ? Landings.Height(trail, quay) : road);
             // The land end: where the road, coming down to the shore, is as high as the deck.
             float landEnd = 0f;
             float best = float.MinValue;
@@ -127,7 +132,8 @@ namespace OdinsPaths
             if (harbour.Built.Reason == null || Enabled.Value)
             {
                 Debug.Log("[OdinsPaths] Harbour at " + trail.Points[landing.Shore].ToString("F0") + ": dock " + harbour.Built
-                    + " (deck " + (deck - water).ToString("F1") + " m above the water, " + landEnd.ToString("F1") + " m inland)");
+                    + " (deck " + (deck - water).ToString("F1") + " m above the water, " + landEnd.ToString("F1") + " m inland"
+                    + (quayed ? ", on the road's quay" : ", no quay") + ")");
             }
             return harbour;
         }

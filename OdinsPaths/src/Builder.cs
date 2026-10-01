@@ -63,6 +63,15 @@ namespace OdinsPaths
             public Vector3 Anchor;
             /// <summary>Turns the blueprint's frame so its inward direction is z.</summary>
             private Quaternion inner;
+            /// <summary>The ground levelled for it, if any: what it stands on is read through this.</summary>
+            public Pad Pad;
+
+            /// <summary>The ground at a point as it will be: the game's, levelled by the pad.</summary>
+            public float GroundAt(float x, float z)
+            {
+                float ground = OdinsPaths.Ground.Height(x, z);
+                return Pad != null ? Pad.Planned(x, z, ground) : ground;
+            }
 
             public static Frame Make(Vector2 origin, Vector2 forward, float floor)
             {
@@ -289,7 +298,7 @@ namespace OdinsPaths
                 return false;
             }
             Vector2 at = frame.Flat(part.Centre.x, part.Centre.y);
-            return Ground.Height(at.x, at.y) > frame.Height(part.Max.y) + Buried;
+            return frame.GroundAt(at.x, at.y) > frame.Height(part.Max.y) + Buried;
         }
 
         /// <summary>Weathers the parts, then writes every piece, pile, relic, chest, spawner and loose piece that is left.</summary>
@@ -308,7 +317,7 @@ namespace OdinsPaths
             {
                 Part part = parts[i];
                 Vector2 at = frame.Flat(part.Centre.x, part.Centre.y);
-                gone[i] = IsBuried(part, frame, options.Dock) || (part.Role == Role.Pile && frame.Height(part.Max.y) < Ground.Height(at.x, at.y));
+                gone[i] = IsBuried(part, frame, options.Dock) || (part.Role == Role.Pile && frame.Height(part.Max.y) < frame.GroundAt(at.x, at.y));
             }
             if (!options.Edit)
             {
@@ -486,7 +495,7 @@ namespace OdinsPaths
             {
                 Part pile = parts[i];
                 Vector2 at = frame.Flat(pile.Centre.x, pile.Centre.y);
-                float ground = Ground.Height(at.x, at.y);
+                float ground = frame.GroundAt(at.x, at.y);
                 float height = Mathf.Max(0.5f, pile.Max.y - pile.Min.y);
                 float bottom = pile.Min.y;
                 for (int k = 1; k <= MaxPileStack && frame.Height(bottom) > ground - 0.3f; k++)
@@ -534,7 +543,7 @@ namespace OdinsPaths
         private static bool Standing(List<Part> parts, bool[] gone, Frame frame, Vector3 spot)
         {
             Vector2 at = frame.Flat(spot.x, spot.z);
-            if (Ground.Height(at.x, at.y) > frame.Height(spot.y) - 0.3f)
+            if (frame.GroundAt(at.x, at.y) > frame.Height(spot.y) - 0.3f)
             {
                 return true;
             }

@@ -60,24 +60,60 @@ namespace OdinsPaths
             public int Levelled;
             public int Skipped;
             public readonly Dictionary<Vector2s, ZoneBackup> Backups = new Dictionary<Vector2s, ZoneBackup>();
+            /// <summary>The vertices levelled through this result (<see cref="Vertex"/>): a door path may level them again (<see cref="Trail.OverOwn"/>).</summary>
+            public readonly HashSet<long> Ours = new HashSet<long>();
         }
+
+        /// <summary>A zone's vertex as one key.</summary>
+        private static long Vertex(Vector2s zone, int index) => ((long)(zone.x + 32768) << 40) | ((long)(zone.y + 32768) << 20) | (uint)index;
 
         public static IEnumerator Write(Trail trail, List<Circle> locations, Structures structures, Result result)
         {
-            Heightmap prefabMap = ZoneSystem.instance.m_zonePrefab.GetComponentInChildren<Heightmap>();
-            int width = prefabMap.m_width;
-            float scale = prefabMap.m_scale;
+            float scale = ZoneSystem.instance.m_zonePrefab.GetComponentInChildren<Heightmap>().m_scale;
             float reach = trail.Kind.Reach + scale;
 
             Dictionary<Vector2s, List<int>> zones = ZonesNear(trail, reach);
             List<Vector2> temples = Planner.Temples();
+            yield return EachZone(zones.Keys,
+                (zone, data) => WriteZone(zone, data, trail, zones[zone], locations, structures, temples, result));
+        }
 
-            // Ask the builder thread for a few at a time, take each as it is ready, and merge
-            // zones while the frame's budget lasts, at least one a frame.
+        /// <summary>
+        /// A harbour building's pad (<see cref="Pad"/>): every vertex in its box levelled to its
+        /// height, fading out across its margin, as far as it may cut and fill. Skipped as a road's
+        /// levelling is: what is modified already (the player's work, the road, the path to the
+        /// door), the shore, locations, and what stands within a piece's reach - structures must
+        /// leave out the building's own pieces.
+        /// </summary>
+        public static IEnumerator WritePad(Pad pad, List<Circle> locations, Structures structures, Result result)
+        {
+            pad.Bounds(out Vector2 min, out Vector2 max);
+            Vector2s low = ZoneSystem.GetZone(new Vector3(min.x, 0f, min.y));
+            Vector2s high = ZoneSystem.GetZone(new Vector3(max.x, 0f, max.y));
+            List<Vector2s> zones = new List<Vector2s>();
+            for (int x = low.x; x <= high.x; x++)
+            {
+                for (int y = low.y; y <= high.y; y++)
+                {
+                    zones.Add(new Vector2s(x, y));
+                }
+            }
+            yield return EachZone(zones, (zone, data) => WritePadZone(zone, data, pad, locations, structures, result));
+        }
+
+        /// <summary>
+        /// Asks the game's heightmap builder for the zones a few at a time, takes each as it is
+        /// ready, and hands it to write while the frame's budget lasts, at least one a frame.
+        /// </summary>
+        private static IEnumerator EachZone(ICollection<Vector2s> zones, System.Action<Vector2s, HeightmapBuilder.HMBuildData> write)
+        {
+            Heightmap prefabMap = ZoneSystem.instance.m_zonePrefab.GetComponentInChildren<Heightmap>();
+            int width = prefabMap.m_width;
+            float scale = prefabMap.m_scale;
             float budget = OdinsPathsPlugin.SearchBudgetMs.Value;
             int total = zones.Count;
             System.Diagnostics.Stopwatch frame = new System.Diagnostics.Stopwatch();
-            List<Vector2s> pending = new List<Vector2s>(zones.Keys);
+            List<Vector2s> pending = new List<Vector2s>(zones);
             List<Vector2s> requested = new List<Vector2s>();
             Dictionary<Vector2s, HeightmapBuilder.HMBuildData> built = new Dictionary<Vector2s, HeightmapBuilder.HMBuildData>();
             List<Vector2s> done = new List<Vector2s>();
@@ -106,7 +142,7 @@ namespace OdinsPaths
                     {
                         break;
                     }
-                    WriteZone(entry.Key, entry.Value, trail, zones[entry.Key], locations, structures, temples, result);
+                    write(entry.Key, entry.Value);
                     done.Add(entry.Key);
                 }
                 foreach (Vector2s zone in done)
@@ -208,7 +244,10 @@ namespace OdinsPaths
                     // Flat to the paint's widest on a main road, to half its width on a spur.
                     float halfWidth = trail.HalfWidthAt(vertexSegment[index], vertex) * flatFactor;
                     bool causeway = raised[index];
-                    if (distance >= halfWidth + Shoulder || terrain.ModifiedHeight[index]
+                    long key = Vertex(zone, index);
+                    // Levelled before by this lay (the road under a door path): levelled again, blended from that.
+                    bool again = terrain.ModifiedHeight[index] && trail.OverOwn && result.Ours.Contains(key);
+                    if (distance >= halfWidth + Shoulder || (terrain.ModifiedHeight[index] && !again)
                         || (!causeway && baseHeight < waterLevel + Trail.ShoreMargin + 0.2f) || InAny(locations, vertex))
                     {
                         continue;
@@ -230,14 +269,16 @@ namespace OdinsPaths
                     // trail's there: the kind's, deeper at a hairpin's landing and in the Mistlands.
                     float maxCut = trail.MaxCutAt(vertexSegment[index]);
                     float maxRaise = causeway ? Trail.SwampFill + Trail.CausewayHeight : maxCut;
-                    float delta = Mathf.Clamp(profile[index] - baseHeight, -maxCut, maxRaise) * blend;
-                    if (Mathf.Abs(delta) < 0.02f)
+                    float before = again ? terrain.LevelDelta[index] + terrain.SmoothDelta[index] : 0f;
+                    float delta = Mathf.Lerp(before, Mathf.Clamp(profile[index] - baseHeight, -maxCut, maxRaise), blend);
+                    if (Mathf.Abs(delta - before) < 0.02f)
                     {
                         continue;
                     }
                     terrain.ModifiedHeight[index] = true;
                     terrain.LevelDelta[index] = delta;
                     terrain.SmoothDelta[index] = 0f;
+                    result.Ours.Add(key);
                     levelled++;
                 }
             }
@@ -272,7 +313,76 @@ namespace OdinsPaths
             {
                 return;
             }
+            Commit(zone, compiler, old, terrain, center, width * scale, result);
+            result.Painted += painted;
+            result.Levelled += levelled;
+        }
 
+        private static void WritePadZone(Vector2s zone, HeightmapBuilder.HMBuildData data, Pad pad, List<Circle> locations, Structures structures, Result result)
+        {
+            int width = data.m_width;
+            int pitch = width + 1;
+            float scale = data.m_scale;
+            Vector3 center = ZoneSystem.GetZonePos(zone);
+            if (CountCompilers(zone, out ZDO compiler) > 1)
+            {
+                Debug.LogWarning("[OdinsPaths] Zone " + zone + ": more than one terrain compiler, left alone.");
+                result.Skipped++;
+                return;
+            }
+            locations = Overlapping(locations, new Vector2(center.x, center.z), width * scale * 0.5f);
+            byte[] old = compiler != null ? compiler.GetByteArray(ZDOVars.s_TCData) : null;
+            TerrainData terrain = old != null ? TerrainData.Decode(old, pitch) : new TerrainData(pitch);
+            if (terrain == null)
+            {
+                Debug.LogWarning("[OdinsPaths] Zone " + zone + ": terrain data in an unknown shape, left alone.");
+                result.Skipped++;
+                return;
+            }
+            float waterLevel = ZoneSystem.instance.m_waterLevel;
+            float origin = -width * scale * 0.5f;
+            Vector2 firstVertex = new Vector2(center.x + origin, center.z + origin);
+            int levelled = 0;
+            for (int y = 0; y < pitch; y++)
+            {
+                for (int x = 0; x < pitch; x++)
+                {
+                    int index = y * pitch + x;
+                    Vector2 vertex = firstVertex + new Vector2(x, y) * scale;
+                    float weight = pad.Weight(vertex.x, vertex.y);
+                    float baseHeight = data.m_baseHeights[index];
+                    if (weight <= 0f || terrain.ModifiedHeight[index] || baseHeight < waterLevel + Trail.ShoreMargin + 0.2f || InAny(locations, vertex))
+                    {
+                        continue;
+                    }
+                    float building = structures.Distance(vertex, Structures.PieceReach + Shoulder);
+                    if (building < Structures.PieceReach)
+                    {
+                        continue;
+                    }
+                    float delta = pad.Delta(baseHeight) * weight * Mathf.SmoothStep(0f, 1f, (building - Structures.PieceReach) / Shoulder);
+                    if (Mathf.Abs(delta) < 0.02f)
+                    {
+                        continue;
+                    }
+                    terrain.ModifiedHeight[index] = true;
+                    terrain.LevelDelta[index] = delta;
+                    terrain.SmoothDelta[index] = 0f;
+                    result.Ours.Add(Vertex(zone, index));
+                    levelled++;
+                }
+            }
+            if (levelled == 0)
+            {
+                return;
+            }
+            Commit(zone, compiler, old, terrain, center, width * scale, result);
+            result.Levelled += levelled;
+        }
+
+        /// <summary>A zone's terrain written back: onto its compiler, a new one if it has none, the old data kept for a dev undo.</summary>
+        private static void Commit(Vector2s zone, ZDO compiler, byte[] old, TerrainData terrain, Vector3 center, float size, Result result)
+        {
             ZoneBackup backup = new ZoneBackup { Data = old };
             if (compiler == null)
             {
@@ -286,10 +396,8 @@ namespace OdinsPaths
             }
             // Zone centre and a radius over its corners: a loaded client resets the grass of
             // the whole zone when it reloads (TerrainComp.CheckLoad, one operation more).
-            compiler.Set(ZDOVars.s_TCData, terrain.Encode(center, width * scale * 0.72f));
+            compiler.Set(ZDOVars.s_TCData, terrain.Encode(center, size * 0.72f));
             result.Zones++;
-            result.Painted += painted;
-            result.Levelled += levelled;
         }
 
         /// <summary>

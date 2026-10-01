@@ -49,6 +49,8 @@ namespace OdinsPaths
         private const float NarrowestShare = 0.3f;
         /// <summary>A leg narrows over this many points before the room gets tight, and widens again as far after.</summary>
         private const int NarrowTaper = 4;
+        /// <summary>How many points inland of a main road's harbour shore are held at its quay height.</summary>
+        private const int QuayPoints = 4;
 
         public readonly RoadKind Kind;
         public readonly List<Vector2> Points = new List<Vector2>();
@@ -68,6 +70,10 @@ namespace OdinsPaths
         public readonly List<float> LegRoom = new List<float>();
         /// <summary>The points the hairpin landings are centred on.</summary>
         public readonly List<int> Bends = new List<int>();
+        /// <summary>Held at a harbour's quay height (<see cref="PinQuays"/>): the grade limit eases the road into it and leaves it.</summary>
+        public readonly List<bool> Quay = new List<bool>();
+        /// <summary>The terrain writer may level again what the same lay levelled before: a door path across the road's shoulder (<see cref="Ramp"/>).</summary>
+        public bool OverOwn;
 
         public Trail(List<Vector2> route, RoadKind kind)
         {
@@ -106,11 +112,83 @@ namespace OdinsPaths
                 float profile = count > 0 ? sum / count : surface[i];
                 Profile.Add(Causeway[i] ? Mathf.Max(profile, causewayTop) : profile);
             }
+            PinQuays(surface);
             LimitGrade(surface);
             FindCuts(surface);
             FlattenBends();
             FadeIntoMistlands();
             FindLegRoom();
+        }
+
+        /// <summary>
+        /// A main road's harbour is one site with one height, as the game's own harbours level the
+        /// ground at their pier's land end to its deck: the last <see cref="QuayPoints"/> points
+        /// before the shore are held at the quay height - the dock's deck height
+        /// (<see cref="Docks.DeckHeight"/>) for the road just inland -, so the dock built there later
+        /// runs on flush, and the grade limit brings the road down or up to it. Not at a harbour of
+        /// the game's (its pier sets the height), nor where the levelling cannot reach the quay.
+        /// </summary>
+        private void PinQuays(List<float> surface)
+        {
+            for (int i = 0; i < Points.Count; i++)
+            {
+                Quay.Add(false);
+            }
+            if (Kind != RoadKind.Main || !Kind.Levelling)
+            {
+                return;
+            }
+            foreach (Landings.Landing landing in Landings.Find(this))
+            {
+                if (Ports.At(Points[landing.Shore]) != null)
+                {
+                    continue;
+                }
+                int inland = landing.Shore < landing.Toward ? -1 : 1;
+                List<int> points = new List<int>();
+                for (int i = landing.Shore; points.Count < QuayPoints && i >= 0 && i < Points.Count && !Water[i]; i += inland)
+                {
+                    points.Add(i);
+                }
+                if (points.Count < 2)
+                {
+                    continue;
+                }
+                float quay = Docks.DeckHeight(Profile[points[1]]);
+                if (!points.TrueForAll(i => Mathf.Abs(quay - surface[i]) <= Kind.DeepestCut))
+                {
+                    continue;
+                }
+                foreach (int i in points)
+                {
+                    Profile[i] = quay;
+                    Quay[i] = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Holds the profile at one height for its first flat metres - across the road it forks off
+        /// - and then on a straight ramp to another at its last point: a path to a door, which has
+        /// to arrive at the door's height whatever the ground does. The levelling may go as deep as
+        /// that needs, up to deepest; vertices the same lay levelled before (the road's shoulder)
+        /// it levels again (<see cref="OverOwn"/>).
+        /// </summary>
+        public void Ramp(float from, float to, float deepest, float flat)
+        {
+            OverOwn = true;
+            int n = Points.Count;
+            float[] along = new float[n];
+            for (int i = 1; i < n; i++)
+            {
+                along[i] = along[i - 1] + Vector2.Distance(Points[i - 1], Points[i]);
+            }
+            for (int i = 0; i < n; i++)
+            {
+                float ramp = along[n - 1] - flat;
+                Profile[i] = ramp > 0f ? Mathf.Lerp(from, to, (along[i] - flat) / ramp) : to;
+                MaxCut[i] = Mathf.Clamp(Mathf.Abs(Profile[i] - Ground[i]) + 0.1f, Kind.MaxCut, Mathf.Max(Kind.MaxCut, deepest)) * Built[i];
+            }
         }
 
         /// <summary>
@@ -133,7 +211,7 @@ namespace OdinsPaths
             float[] profile = Profile.ToArray();
             for (int i = 0; i < n; i++)
             {
-                bool fixedHere = Water[i] || Causeway[i] || Mistlands[i];
+                bool fixedHere = Water[i] || Causeway[i] || Mistlands[i] || Quay[i];
                 float cut = fixedHere ? 0f : Kind.SteepCut;
                 low[i] = Mathf.Min(surface[i] - cut, profile[i]);
                 high[i] = Mathf.Max(surface[i] + cut, profile[i]);

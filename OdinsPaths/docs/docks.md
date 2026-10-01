@@ -20,9 +20,13 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
 
 ## Where things go
 
-- **Dock height.** The deck's top is the road's height 1.5 m inland of the shore point (the
-  road as the terrain writer levels it, `Landings.Height`), kept 0.8-3 m above the water. The
-  shore point is often the foot of the bank the road comes down, so the deck is not set there.
+- **Quay and dock height.** The harbour has one height, chosen before the road is laid: the
+  trail holds its last points before the shore at the **quay height** (`Trail.PinQuays`: the
+  dock's deck height for the road just inland, kept 0.8-3 m above the water), and the grade
+  limit brings the road down or up to it, as the game's own harbours level the ground at their
+  pier to its deck. The deck's top is the quay as levelled (`Landings.Height`). No quay where the
+  levelling cannot reach it, or at a harbour of the game's: then the road's height 1.5 m inland
+  of the shore point, in the same bounds (the shore point is often the foot of the bank).
 - **Land end.** Walking from the shore point inland along the road (up to 8 m), the first point
   where the road is as high as the deck: the dock's origin, on the road's middle, so the road
   runs onto the planks flush. Its heading: from 4 m inland of that to a few trail points out
@@ -36,23 +40,38 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
   anything within 2 m, its height the lower of the ground and the road, sunk 0.2 m.
 - **Buildings.** Up to `Buildings`, a different blueprint each while there are, each blueprint
   tried once before any is repeated. Two kinds (`src/Buildings.cs` has the distances):
-  - **On their own** (no `dock` spot): placed by the **lowest door** (`door` role) - its foot
+  - **Beside the road** (no `dock` spot): placed by the **lowest door** (`door` role) - its foot
     is the building's snap point, and the way in is across the door toward the middle of the
-    floors. Tried along the road inland of the land end, on both sides, the door facing the
-    road a few metres past its levelled edge (a random setback first, then from the nearest).
-    The box around its floors, walls, doors and piles must be dry, not too steep, clear of
-    structures, this road, locations and the other door paths; so must the way from the road to
-    the door. The floor goes at the highest ground; the piles reach down to the rest. A **door
-    path** (a short dirt `Trail` from the road's middle to just short of the door) is written
-    after the road, with the building's own pieces around the door left out of the structures
-    so it reaches the threshold. A building without a door is placed by its front's middle (a
-    warning in the log).
-  - **Joined to the dock** (a `dock` spot): the spot on the outer edge of the dock's deck, level
-    with it, on either side past the land end; the building off that side, turned so the way
-    from its floors' middle through the spot points onto the dock. None of it on the deck, its
-    floors neither buried nor over water deeper than a dock may stand in, clear of structures
-    (the dock's own aside), door paths, the road and locations. No door path. Not at a harbour
-    of the game's (no dock of the mod's).
+    floors. Every place along the road inland of the land end, on both sides, the door facing
+    the road a few metres past its levelled edge, is weighed (`Buildings.Site`). The **door's
+    height comes from the road's**: no further above or below it than a path climbs at
+    `DoorGrade` from the road's flat edge to the door. For each door height in that range the
+    ground under the box (its floors, walls, doors and piles, plus an apron) is compared with
+    the floor: a **pad** (`src/Pad.cs`) cuts it down where it is higher (at most `PadCut`),
+    fills it where it is lower (at most `PadFill`), and the piles, if the blueprint has any,
+    carry the floor down `MaxPiles` further; past that the height does not fit. The cheapest
+    height and place win: the ground moved (a cut costs most, piles least), the door off the
+    road's height, the setback and the distance up the road, plus a little at random. The box
+    must be dry and clear of structures, this road, locations and the other door paths; so must
+    the way from the road to the door. A **door path** (a short dirt `Trail` from the road's
+    middle to just short of the door) is written after the road, held at the road's height
+    across it and **ramped to the door's** (`Trail.Ramp`), levelling the road's own shoulder
+    again on the way (`Trail.OverOwn`), with the building's own pieces around the door left out
+    of the structures so it reaches the threshold; then the pad, around what the path levelled.
+    The builder reads the ground through the pad, so a floor the pad digs out stands. A building
+    without a door is placed by its front's middle (a warning in the log).
+  - **Onto the dock**: a building with a `dock` spot by that spot, one beside the road that
+    found no place there by its door's foot (the way out of the door onto the deck): on the outer
+    edge of the dock's deck, level with it, on either side past the land end; the building off
+    that side. None of it on the deck, its floors neither buried nor over water deeper than a
+    dock may stand in, clear of structures (the dock's own aside), door paths, the road and
+    locations. No door path, no pad. Not at a harbour of the game's (no dock of the mod's).
+  - **The order:** beside the road, then onto the dock; the dock first where the land beside the
+    road just inland is steep (`Buildings.Steep`: its ground a few metres off the road never
+    within `SteepRise` of the road's height). A blueprint that fits nowhere gives way to its
+    `fallback`, and that one's, a few deep (Minecraft's fallback pools).
+  - The log line per harbour names each building, where it went and how far its door is above
+    or below the road.
   - Trees and rocks around its pieces are cleared, now in generated zones and later when a zone
     is generated (`Clearing.ClearNewZone`, by the pieces' `OdinsPaths_Building` mark). Another
     road running past is not checked.
@@ -141,7 +160,8 @@ converts it.
   An old-format building without a door: origin the middle of its front, z into it.
 - `kind` `dock` or `building`; `biomes` `Heightmap.Biome` names (`Meadows`, `BlackForest`,
   `Swamp`, `Mountain`, `Plains`, `Mistlands`, `AshLands`, `DeepNorth`), none for any;
-  `preSnow` starts every piece snowed over; `roofReach` (m, 0 = 3) how far a roof piece may be
+  `preSnow` starts every piece snowed over; `fallback` (a building's) the building of that name to
+  try where this one fits nowhere; `roofReach` (m, 0 = 3) how far a roof piece may be
   from a standing wall or post; `deco` the furniture the deco spots pick from, each spot what
   fits its kind (below; when the list has nothing for a kind, `Builder.DefaultDeco`'s);
   `clutter` loose pieces laid on deck pieces at `clutterChance` each.
@@ -259,8 +279,13 @@ drop their third as any ruin does, each only where it is found anyway.
   (piles 0.1 m into the deck, walls on the floor, roofs at 2 m, lamps on their posts).
 - Nothing collapses when a player comes near; a weathered roof or a post over a gone deck.
 - The stone on the dock (its size on a 4 m walkway) and beside the road (its height).
-- Buildings: their spots beside the road, the floor at the highest ground, piles on the slope,
-  trees cleared, nothing on another road.
+- Buildings: their spots beside the road, piles on the slope, trees cleared, nothing on another
+  road.
+- The quay and the pads (2026-10-01): the road's last metres level at the deck's height and
+  the dock flush with them (the log says "on the road's quay"); a hut's door within a step of
+  its path, the path ramped across the road's shoulder without a ledge, the pad cut and filled
+  under the floor with no ledge at its margin, nothing of the floor left out where the pad dug;
+  a hut with a door built onto the dock on a steep shore, its door on the deck's edge.
 - Doors (2026-10-01): the way in found right (the door faces the road, not the building's back),
   the door path painted and levelled up to the threshold, not into the floor; a building joined
   to a dock flush with the deck, on the right side of it, its piles reaching the seabed.
