@@ -50,6 +50,9 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   spurs landing at a pier.
 - **A busy harbour.** Make a harbour look used, not abandoned: better condition than a ruin's,
   lit lamps, crates and barrels.
+- **The ferryman:** a ghost beside each harbour stone, there only at night, who takes the player
+  to a linked harbour for coins (or a late meal for far trips and the Ashlands / Deep North).
+  Plan in `docs/ferry.md`; after the harbour stones are verified in game.
 - **Wrecks at the harbours.** A `wreck` blueprint kind from the game's wreck parts
   (`shipwreck_karve_*`, `shipwreck_vikingship_*`; **verify** they spawn by name through
   `ZNetScene`), laid in the shallows beside a harbour so it feels alive.

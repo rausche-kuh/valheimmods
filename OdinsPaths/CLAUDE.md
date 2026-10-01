@@ -27,6 +27,7 @@ Thunderstore upload; `package/icon.png` is a generated placeholder.
 | `docs/biomes.md` | What each biome asks of a road. |
 | `docs/docks.md` | Docks and harbour buildings: placement, the blueprint format (PlanBuild's), making them in game or with PlanBuild. |
 | `docs/placement.md` | Fitting docks, buildings, bridges to the terrain: other games, what is built, what is left. |
+| `docs/ferry.md` | The night ferryman at the harbours (plan): the ghost, choosing a harbour, price and payment, the crossing. |
 | `docs/prior-art.md` | Procedural Roads and `PLAN.md` weighed, why no Jötunn. |
 
 ## Source map
