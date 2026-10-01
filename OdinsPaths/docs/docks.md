@@ -16,7 +16,7 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
 | `src/Relics.cs` | Furniture that drops nothing (below). |
 | `src/Dev/DockCommands.cs` | `docks list / reload / build / house / undo / capture / export / import`. |
 | `src/Dev/PlanBuildFiles.cs` | `docks export` into PlanBuild's folder, `docks import` of a PlanBuild capture: the fit. |
-| `assets/harbours/*.json` | The shipped blueprints, generated once from the old code styles, still in the old format (below). |
+| `assets/harbours/` | The shipped blueprints, the bare minimum to be replaced: `WoodJetty` (a dock, still in the old format below) and `WoodHut` (a building). A biome with none of its own builds as the Meadows do. |
 
 ## Where things go
 
@@ -129,7 +129,7 @@ woodwall;wall;2;0;5;0;0.707107;0;0.707107;"";1;1;1
 sign;spot;1.2;0.9;1;0;1;0;0;"stone";1;1;1
 ```
 
-**The old format**, what the shipped files still are: the settings JSON alone, with the pieces
+**The old format**, what the shipped `WoodJetty` still is: the settings JSON alone, with the pieces
 in it (`"pieces": [{"prefab", "pos": [x, y, z], "rot": [yaw] | [x, y, z] Euler | [x, y, z, w],
 "role", "anchor": "pivot" | "top" | "bottom"}]`, `anchor` the point of the prefab's measured
 collider box at `pos`) and `"spots": [{"kind", "pos", "yaw"}]`. It still loads; `docks export`
@@ -228,12 +228,11 @@ drop their third as any ruin does, each only where it is found anyway.
 
 - Support (`WearNTear.GetMaterialProperties`): Wood 100 max, 20% lost sideways, 12.5% up;
   Timberwood (Frostwood) 200, 20%; Stone 1000, all lost sideways; Ashstone 2000, a third. The
-  shipped wood docks put piles on the outer edges every 4 m (a floor is at most one tile from
-  one); grausten keeps a block under every tile until its floor's material is checked.
+  shipped wood dock puts piles on the outer edges every 4 m (a floor is at most one tile from
+  one).
 - Every `Spawner_*` used has a respawn time of 0 (read from the bundles): it raises its creature
   once, when a player comes within 60 m, and never again.
-- The Mistlands' `DvergrHarbourPier` is the pier of `Mistlands_Harbour1`, read from its bundle
-  (2026-09-26). `dvergrprops_*` are no build pieces (no `Piece`) but wear and drop wood and copper.
+- `dvergrprops_*` are no build pieces (no `Piece`) but wear and drop wood and copper.
 - **`Mistlands_Harbour1`** (bundle `c920e237` and the location list, 2026-09-27): slope rotation
   (`ZoneSystem.PlaceLocations`: the location's z points down the slope, out to sea, rounded to
   22.5°, from random samples), snapped to the water, its origin at the water's edge. The pier
@@ -256,7 +255,7 @@ drop their third as any ruin does, each only where it is found anyway.
 
 - The deck flush with the road at the land end, on a steep bank and on a flat beach; the log
   line gives the deck's height above the water and how far inland the dock starts.
-- Every piece at its height: the `anchor`s of the shipped files were not measured in game
+- Every piece at its height: the `anchor`s of the shipped `WoodJetty` were not measured in game
   (piles 0.1 m into the deck, walls on the floor, roofs at 2 m, lamps on their posts).
 - Nothing collapses when a player comes near; a weathered roof or a post over a gone deck.
 - The stone on the dock (its size on a 4 m walkway) and beside the road (its height).
@@ -275,6 +274,6 @@ drop their third as any ruin does, each only where it is found anyway.
 
 ## To make
 
-- Better shipped blueprints, built in game: pitched roofs, doors, railings, a Mistlands building.
-- Swamp (darkwood on log piles?), Plains and Mountain docks of their own.
+- Blueprints built in game to replace the shipped two, and docks and buildings for every
+  biome: pitched roofs, doors, railings, a `dock` sign on a building.
 - Spurs' minor harbours still get only a post.

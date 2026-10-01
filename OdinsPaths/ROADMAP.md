@@ -40,10 +40,10 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - Swamp paths should be dirt
 - sign post for the main network
 - structure road ends: paint dirt without leveling - trying a wider area to mask not knowing the "stair" position
-- **Harbour blueprints:** rebuild the shipped ones (pitched roofs, doors, a Mistlands
-  building); the user makes them with PlanBuild (`docs/docks.md`). Only `WoodHut` has a door
-  so far: the old-format buildings are placed by their front, and none joins a dock yet (a
-  `dock` sign). Their deco spots are all `deco_h1` (the old `deco`).
+- **Harbour blueprints:** only the bare minimum ships, to be replaced: `WoodJetty` (the one
+  dock, old format) and `WoodHut` (the one building). Every biome builds those until it has
+  its own; the user makes them with PlanBuild (`docs/docks.md`). No building joins a dock yet
+  (a `dock` sign).
 - **Harbour buildings on the terrain:** fit a building and its door to the ground at the door
   (today the floor goes at the highest ground and the door path follows the ground).
 - **The game's harbours:** **find** the swamp location that looks like a dock (not named like
