@@ -11,8 +11,6 @@
   - Nearby fuel and add all are one tweak, **Station refill** (`SingleFromChests`, `AddAll`).
   - The four chest ranges are one, `General.ChestRange`, and the three hotbar switches of quick
     stack, chest buttons and inventory buttons are one, `General.KeepHotbar`.
-- Favourites only count while quick stack is on. Before, switching quick stack off hid the golden
-  frames, but Place all, Sort and auto shield still treated those items as favourites.
 - The "Nearby use: off" line on a chest's hover text is translated like the rest.
 
 - Added: collateral damage. A troll's swing and ground slam hit the greydwarfs in the way,
