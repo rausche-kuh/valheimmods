@@ -13,7 +13,7 @@ namespace OdinsPaths
     // refers to it - delete the file to drop the commands.
     public partial class OdinsPathsPlugin
     {
-        private const string Usage = "paths facts | bench [cells] | where <location> | costs [<name> <value> ...] | search <target> [pass ...] | "
+        private const string Usage = "paths facts | bench [cells] | threads [threads] [samples] | where <location> | costs [<name> <value> ...] | search <target> [pass ...] | "
             + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | ports [radius] | signs [place] | "
             + "network | forget | clearpins | reset [confirm]   (target: <x> <z> or a location name; "
             + "pass: a cell in metres, or cell:corridor - one alone is the coarse cell before the settings' fine pass, 0 = none; "
@@ -88,6 +88,11 @@ namespace OdinsPaths
                         case "auto": Say(args.Context, Auto(args)); break;
                         case "ports": Ports(args); break;
                         case "signs": Signs(args); break;
+                        case "threads":
+                            ThreadCheck(args.Context,
+                                args.Length > 2 && int.TryParse(args[2], out int threads) ? Mathf.Clamp(threads, 2, 64) : Mathf.Clamp(System.Environment.ProcessorCount, 2, 64),
+                                args.Length > 3 && int.TryParse(args[3], out int samples) ? Mathf.Clamp(samples, 16384, 2000000) : 100000);
+                            break;
                         default: Say(args.Context, Usage); break;
                     }
                 }, isCheat: true);

@@ -87,8 +87,8 @@ capture` or with PlanBuild. Settings: `[Harbours] Docks` (on), `Buildings` (2),
   as the game generates the zones around a player (`ZoneSystem.SpawnZone` as a ghost), the
   nearest to its goals first and only a few per road, and reads the turn from the harbour's
   crane (else its guardstone), checked against where that piece belongs. Read harbours are kept
-  for the session.
-- **The search.** A step boarding or landing near a berth pays a share of the lump sum; the
+  for the session; the log lists only the ones read for the road at hand.
+- **The search.** A step boarding or landing near a berth (or near a stone of the mod's own) pays a share of the lump sum; the
   harbour's circle is no obstacle to the search (its pieces are structures), but it still keeps
   the levelling out. A pier's land end within reach of a Mistlands goal is an entry into them
   (`Entries`).

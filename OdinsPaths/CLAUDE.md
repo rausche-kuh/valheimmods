@@ -61,6 +61,7 @@ released: `VERSION` stays 0.1.0, `package/icon.png` is a placeholder.
 | `src/Clearing.cs` | Removes trees, rocks and scenery from a path; the `SpawnZone` patch. |
 | `src/PathLayer.cs` | One road: search passes → trail → write → clear → landings; `LaySpurs`. |
 | `src/Dev/PathCommands.cs` | `paths` commands: facts, search, lay, grow, undo, reset, signs… (Debug only). |
+| `src/Dev/ThreadCheck.cs` | `paths threads`: the generator read from many threads against one, timed (Debug only). |
 | `src/Dev/PathPreview.cs` | `paths preview` / `show` / `auto`, the pins and their tooltips (Debug only). |
 | `src/Dev/DockCommands.cs` | `docks` commands: build, undo, capture, export, import… (Debug only). |
 | `src/Dev/PlanBuildFiles.cs` | `docks export` / `import` through PlanBuild's folder (Debug only). |

@@ -193,7 +193,6 @@ namespace OdinsPaths
                 Progress.Stage("Looking at the harbours on the way", 0f, 0.01f);
                 yield return Ports.Prepare(Start.Positions(PathSearch.Anchors(starts, goals)), goals, report, found => ports = found);
             }
-            List<Vector2> berths = ports != null && ports.Count > 0 ? ports.ConvertAll(p => p.Berth) : null;
             Progress.Stage("Looking for a way into the Mistlands", 0f, 0.01f);
             yield return Entries.Find(goals, (found, owners) => { entryGoals = found; entryOwners = owners; }, ports);
             if (entryGoals != null)
@@ -215,13 +214,22 @@ namespace OdinsPaths
             // A network has thousands of starts; the areas are drawn around the few that matter.
             List<Vector2> positions = Start.Positions(PathSearch.Anchors(starts, outerGoals));
             List<Circle> locations = null;
-            yield return LocationsAround(positions, everyGoal, null, 0f, found => locations = found);
+            Structures structures = null;
+            yield return Worker.Together(
+                LocationsAround(positions, everyGoal, null, 0f, found => locations = found),
+                Structures.Gather(Structures.Ellipses(positions, everyGoal), found => structures = found));
             // A harbour of the game's is no place to keep out of for the search, only for the
             // levelling: its pieces are structures, and a crossing through it is led along its pier.
-            List<Circle> searched = berths == null ? locations
+            List<Circle> searched = ports == null || ports.Count == 0 ? locations
                 : locations.FindAll(c => !ports.Exists(p => (p.Centre - c.Center).sqrMagnitude < 1f));
-            Structures structures = null;
-            yield return Structures.Gather(Structures.Ellipses(positions, everyGoal), found => structures = found);
+            // Where a crossing may set out or land for less: the game's piers, and the harbours
+            // earlier roads left - landing beside one instead of a new harbour a little way off.
+            List<Circle> berths = new List<Circle>();
+            if (ports != null)
+            {
+                berths.AddRange(ports.ConvertAll(p => new Circle { Center = p.Berth, Radius = Ports.Reach }));
+            }
+            berths.AddRange(structures.HarbourStones.ConvertAll(at => new Circle { Center = at, Radius = Harbours.Merge }));
             outcome.Structures = structures.Count;
             float budget = OdinsPathsPlugin.SearchBudgetMs.Value;
 
@@ -587,6 +595,8 @@ namespace OdinsPaths
         /// </summary>
         public static IEnumerator LaySpurs(Network.Road road, Network network, bool write, Options options, Action<string> report, Action<SpurOutcome> done)
         {
+            // Its own stage: these frames were counted as the lamps'.
+            Progress.Stage("Looking at what stands near the side paths", ClearShare, ClearShare);
             yield return Footprints.Wait();
             float cell = options.SpurCell;
             SpurOutcome outcome = new SpurOutcome();
@@ -655,11 +665,12 @@ namespace OdinsPaths
             // inside and pay ten times for the last step: their circles shrink by most of a cell.
             // They still keep a spur to one from cutting through another.
             List<Circle> locations = null;
-            yield return LocationsAround(positions, goals, centres, cell * 0.75f, found => locations = found);
             Corridor corridor = new Corridor(road.Points, 2f * (reach + cell));
             // The spur search stays in the corridor, and so does every spur written.
             Structures structures = null;
-            yield return Structures.Gather(corridor.Contains, found => structures = found);
+            yield return Worker.Together(
+                LocationsAround(positions, goals, centres, cell * 0.75f, found => locations = found),
+                Structures.Gather(corridor.Contains, found => structures = found));
             PathSearch search = new PathSearch(starts, goals, locations, structures.Without(pois), RoadKind.Spur, cell, corridor.Contains);
             search.Collect(prize);
             outcome.Search = search;
@@ -672,13 +683,8 @@ namespace OdinsPaths
                 outcome.ConsideredCosts.Add(search.CostOf(goal));
             }
 
-            int laid = 0;
             foreach (PathSearch.Settled settled in search.Collected)
             {
-                // Each spur a slice of what is left, its writing four fifths of it and its clearing the rest.
-                float slice = (1f - SpurSearchShare) / search.Collected.Count;
-                float at = SpurSearchShare + slice * laid++;
-                string which = "Side path " + laid + " of " + search.Collected.Count;
                 if (settled.Route.Count < 2)
                 {
                     // The road passes right by it: reached already, and no spur to lay.
@@ -693,12 +699,17 @@ namespace OdinsPaths
                 outcome.Trails.Add(trail);
                 outcome.Roads.Add(Network.FromLay(trail, settled.Route, settled.Costs, settled.Origin, goals[settled.Goal], names[settled.Goal]));
                 outcome.Connected.Add(centres[settled.Goal]);
-                if (write)
+            }
+            if (write && outcome.Trails.Count > 0)
+            {
+                // All of them in one pass each, the writing four fifths of what is left and the clearing the rest.
+                float writing = SpurSearchShare + (1f - SpurSearchShare) * 0.8f;
+                Progress.Stage("Laying the side paths", SpurSearchShare, writing);
+                yield return TerrainWriter.Write(outcome.Trails, locations, structures, outcome.Written);
+                Progress.Stage("Clearing the side paths", writing, 1f);
+                yield return Clearing.Clear(outcome.Trails, outcome.Cleared);
+                foreach (Trail trail in outcome.Trails)
                 {
-                    Progress.Stage(which, at, at + slice * 0.8f);
-                    yield return TerrainWriter.Write(trail, locations, structures, outcome.Written);
-                    Progress.Stage(which + ", clearing", at + slice * 0.8f, at + slice);
-                    yield return Clearing.Clear(trail, outcome.Cleared);
                     yield return Landings.Place(trail, structures, outcome.Landings);
                     outcome.Lamps.AddRange(Lamps.Place(trail, structures, locations));
                 }

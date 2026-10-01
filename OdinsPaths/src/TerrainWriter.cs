@@ -11,8 +11,8 @@ namespace OdinsPaths
     /// up by itself (<c>TerrainComp.CheckLoad</c> watches the ZDO's data revision). Server only:
     /// only the server holds every ZDO, so only it can be sure a zone has no compiler yet.
     ///
-    /// The base heights and base paint of a zone come from the game's heightmap builder thread,
-    /// asked without blocking (<c>RequestTerrain</c>), so the main thread only merges and packs.
+    /// The base heights and base paint of a zone are built as the game builds them, on threads of
+    /// the mod's own (<see cref="EachZone"/>), so the main thread only merges and packs.
     /// </summary>
     internal static class TerrainWriter
     {
@@ -25,12 +25,8 @@ namespace OdinsPaths
         internal const float Shoulder = 1.5f;
         /// <summary>Segments further apart along the trail than this (20 m) are different legs of it.</summary>
         private const int OtherLeg = Trail.OtherLeg;
-        /// <summary>
-        /// At most this many zones asked of the game's heightmap builder at once. It has one thread
-        /// for everything, first come first served, so a whole road's zones queued at once made the
-        /// zones a walking player needs wait behind them (found through Procedural Roads #27).
-        /// </summary>
-        private const int MaxRequested = 6;
+        /// <summary>At most this many threads build a road's zones (<see cref="EachZone"/>), half the cores at most.</summary>
+        private const int MaxBuilders = 4;
         /// <summary>
         /// Around the sacrificial stones no levelling within this, fading in over <see cref="Shoulder"/>
         /// past it: the start temple levels its own ground, and a road's levelling on top of it was
@@ -69,13 +65,26 @@ namespace OdinsPaths
 
         public static IEnumerator Write(Trail trail, List<Circle> locations, Structures structures, Result result)
         {
-            float scale = ZoneSystem.instance.m_zonePrefab.GetComponentInChildren<Heightmap>().m_scale;
-            float reach = trail.Kind.Reach + scale;
+            return Write(new List<Trail> { trail }, locations, structures, result);
+        }
 
-            Dictionary<Vector2s, List<int>> zones = ZonesNear(trail, reach);
+        /// <summary>
+        /// Several trails in one pass: each zone asked of the builder once and written trail by
+        /// trail, in their order, as one write after another would. A road's spurs one by one
+        /// waited the frames of a pass each, most of a road's time (2026-10-01).
+        /// </summary>
+        public static IEnumerator Write(List<Trail> trails, List<Circle> locations, Structures structures, Result result)
+        {
+            float scale = ZoneSystem.instance.m_zonePrefab.GetComponentInChildren<Heightmap>().m_scale;
+            Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>> zones = ZonesNear(trails, trail => trail.Kind.Reach + scale);
             List<Vector2> temples = Planner.Temples();
-            yield return EachZone(zones.Keys,
-                (zone, data) => WriteZone(zone, data, trail, zones[zone], locations, structures, temples, result));
+            yield return EachZone(zones.Keys, (zone, data) =>
+            {
+                foreach (KeyValuePair<Trail, List<int>> part in zones[zone])
+                {
+                    WriteZone(zone, data, part.Key, part.Value, locations, structures, temples, result);
+                }
+            });
         }
 
         /// <summary>
@@ -102,8 +111,12 @@ namespace OdinsPaths
         }
 
         /// <summary>
-        /// Asks the game's heightmap builder for the zones a few at a time, takes each as it is
-        /// ready, and hands it to write while the frame's budget lasts, at least one a frame.
+        /// Builds the zones' base heights and paint on threads of the mod's own, with the game's
+        /// own <c>HeightmapBuilder.Build</c> (it reads only the generator, which many threads may:
+        /// <c>paths threads</c>), and hands each to write while the frame's budget lasts, at least
+        /// one a frame. The game's builder thread was asked first: it sleeps 10 ms after every zone
+        /// and keeps 16 ready, so a road's zones waited a frame or more each (2026-10-01), and a
+        /// walking player's zones waited behind them.
         /// </summary>
         private static IEnumerator EachZone(ICollection<Vector2s> zones, System.Action<Vector2s, HeightmapBuilder.HMBuildData> write)
         {
@@ -111,46 +124,145 @@ namespace OdinsPaths
             int width = prefabMap.m_width;
             float scale = prefabMap.m_scale;
             float budget = OdinsPathsPlugin.SearchBudgetMs.Value;
-            int total = zones.Count;
-            System.Diagnostics.Stopwatch frame = new System.Diagnostics.Stopwatch();
-            List<Vector2s> pending = new List<Vector2s>(zones);
-            List<Vector2s> requested = new List<Vector2s>();
-            Dictionary<Vector2s, HeightmapBuilder.HMBuildData> built = new Dictionary<Vector2s, HeightmapBuilder.HMBuildData>();
-            List<Vector2s> done = new List<Vector2s>();
-            while (pending.Count > 0 || requested.Count > 0 || built.Count > 0)
+            HeightmapBuilder builder = HeightmapBuilder.instance;
+            WorldGenerator generator = WorldGenerator.instance;
+            Vector2s[] order = new Vector2s[zones.Count];
+            zones.CopyTo(order, 0);
+            Vector3[] centres = new Vector3[order.Length];
+            for (int i = 0; i < order.Length; i++)
             {
-                while (requested.Count + built.Count < MaxRequested && pending.Count > 0)
+                centres[i] = ZoneSystem.GetZonePos(order[i]);
+            }
+            Builders builders = new Builders(order.Length);
+            int threads = Mathf.Clamp(System.Environment.ProcessorCount / 2, 1, Mathf.Min(MaxBuilders, order.Length));
+            for (int t = 0; t < threads; t++)
+            {
+                new System.Threading.Thread(() => builders.Run(i =>
                 {
-                    requested.Add(pending[pending.Count - 1]);
-                    pending.RemoveAt(pending.Count - 1);
-                }
-                for (int i = requested.Count - 1; i >= 0; i--)
+                    HeightmapBuilder.HMBuildData data = new HeightmapBuilder.HMBuildData(centres[i], width, scale, false, generator);
+                    builder.Build(data);
+                    return data;
+                }))
                 {
-                    HeightmapBuilder.HMBuildData data = HeightmapBuilder.instance.RequestTerrain(
-                        ZoneSystem.GetZonePos(requested[i]), width, scale, false, WorldGenerator.instance);
-                    if (data != null)
-                    {
-                        built[requested[i]] = data;
-                        requested.RemoveAt(i);
-                    }
-                }
-                done.Clear();
+                    IsBackground = true,
+                    Name = "OdinsPaths zones",
+                    Priority = System.Threading.ThreadPriority.BelowNormal,
+                }.Start();
+            }
+            System.Diagnostics.Stopwatch frame = new System.Diagnostics.Stopwatch();
+            int written = 0;
+            while (written < order.Length)
+            {
                 frame.Restart();
-                foreach (KeyValuePair<Vector2s, HeightmapBuilder.HMBuildData> entry in built)
+                int inFrame = 0;
+                while (written < order.Length && (inFrame == 0 || frame.Elapsed.TotalMilliseconds <= budget)
+                    && builders.Take(out int index, out HeightmapBuilder.HMBuildData data))
                 {
-                    if (done.Count > 0 && frame.Elapsed.TotalMilliseconds > budget)
+                    write(order[index], data);
+                    written++;
+                    inFrame++;
+                }
+                if (builders.Error != null)
+                {
+                    Debug.LogError("[OdinsPaths] Building a zone's heights: " + builders.Error);
+                    builders.Stop();
+                    yield break;
+                }
+                Progress.Set((float)written / Mathf.Max(order.Length, 1));
+                if (written < order.Length)
+                {
+                    yield return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The zones <see cref="EachZone"/> builds, a few ahead of the writing: each built zone is
+        /// tens of kilobytes. A builder gives up when nothing has been taken for a while - the
+        /// coroutine stopped with its world.
+        /// </summary>
+        private sealed class Builders
+        {
+            private const int Ahead = 16;
+            private const int Abandoned = 30000;
+            private readonly Queue<KeyValuePair<int, HeightmapBuilder.HMBuildData>> built = new Queue<KeyValuePair<int, HeightmapBuilder.HMBuildData>>();
+            private readonly int count;
+            private int next = -1;
+            private bool stopped;
+            private int lastTaken = System.Environment.TickCount;
+            public volatile System.Exception Error;
+
+            public Builders(int count)
+            {
+                this.count = count;
+            }
+
+            public void Run(System.Func<int, HeightmapBuilder.HMBuildData> build)
+            {
+                try
+                {
+                    while (true)
                     {
-                        break;
+                        lock (built)
+                        {
+                            while (!stopped && built.Count >= Ahead)
+                            {
+                                if (System.Environment.TickCount - lastTaken > Abandoned)
+                                {
+                                    stopped = true;
+                                }
+                                System.Threading.Monitor.Wait(built, 100);
+                            }
+                            if (stopped)
+                            {
+                                return;
+                            }
+                        }
+                        int i = System.Threading.Interlocked.Increment(ref next);
+                        if (i >= count)
+                        {
+                            return;
+                        }
+                        HeightmapBuilder.HMBuildData data = build(i);
+                        lock (built)
+                        {
+                            built.Enqueue(new KeyValuePair<int, HeightmapBuilder.HMBuildData>(i, data));
+                        }
                     }
-                    write(entry.Key, entry.Value);
-                    done.Add(entry.Key);
                 }
-                foreach (Vector2s zone in done)
+                catch (System.Exception e)
                 {
-                    built.Remove(zone);
+                    Error = e;
+                    Stop();
                 }
-                Progress.Set(1f - (float)(pending.Count + requested.Count + built.Count) / Mathf.Max(total, 1));
-                yield return null;
+            }
+
+            public bool Take(out int index, out HeightmapBuilder.HMBuildData data)
+            {
+                lock (built)
+                {
+                    lastTaken = System.Environment.TickCount;
+                    if (built.Count == 0)
+                    {
+                        index = -1;
+                        data = null;
+                        return false;
+                    }
+                    KeyValuePair<int, HeightmapBuilder.HMBuildData> entry = built.Dequeue();
+                    System.Threading.Monitor.PulseAll(built);
+                    index = entry.Key;
+                    data = entry.Value;
+                    return true;
+                }
+            }
+
+            public void Stop()
+            {
+                lock (built)
+                {
+                    stopped = true;
+                    System.Threading.Monitor.PulseAll(built);
+                }
             }
         }
 
@@ -182,6 +294,24 @@ namespace OdinsPaths
                         }
                         segments.Add(i);
                     }
+                }
+            }
+            return zones;
+        }
+
+        /// <summary><see cref="ZonesNear(Trail, float)"/> for several trails: per zone, each trail near it with its segments, in the trails' order.</summary>
+        internal static Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>> ZonesNear(List<Trail> trails, System.Func<Trail, float> reach)
+        {
+            Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>> zones = new Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>>();
+            foreach (Trail trail in trails)
+            {
+                foreach (KeyValuePair<Vector2s, List<int>> entry in ZonesNear(trail, reach(trail)))
+                {
+                    if (!zones.TryGetValue(entry.Key, out List<KeyValuePair<Trail, List<int>>> parts))
+                    {
+                        zones[entry.Key] = parts = new List<KeyValuePair<Trail, List<int>>>();
+                    }
+                    parts.Add(new KeyValuePair<Trail, List<int>>(trail, entry.Value));
                 }
             }
             return zones;

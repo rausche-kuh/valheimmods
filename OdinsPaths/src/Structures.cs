@@ -36,6 +36,8 @@ namespace OdinsPaths
         public int Count { get; private set; }
         /// <summary>Of them, the rocks and roots (each one disc of points).</summary>
         public int Obstacles { get; private set; }
+        /// <summary>Of them, the harbour stones earlier roads left (<see cref="Harbours"/>): a landing beside one shares its harbour.</summary>
+        public readonly List<Vector2> HarbourStones = new List<Vector2>();
 
         /// <summary>
         /// The structures where inside says, handed to done. The world holds hundreds of thousands
@@ -85,6 +87,10 @@ namespace OdinsPaths
                     if (built)
                     {
                         result.Add(at);
+                        if (zdo.GetPrefab() == Harbours.Hash)
+                        {
+                            result.HarbourStones.Add(at);
+                        }
                     }
                     else
                     {
@@ -110,42 +116,156 @@ namespace OdinsPaths
         }
 
         /// <summary>
-        /// Inside the ellipse of any start with any goal, as the search has them. Each ellipse lies
-        /// in the circle around the middle of its foci with half its limit for a radius, which
-        /// turns most points away before the two distances.
+        /// Inside the ellipse of any start with any goal, as the search has them. Every piece
+        /// against every ellipse took seconds a road once the network had grown - a hundred
+        /// thousand pieces, a Mistlands town's dozens of ways in (2026-10-01) - so the area is cut
+        /// into squares first (<see cref="EllipseTree"/>), built on the first point asked: on the
+        /// gathering's thread.
         /// </summary>
         public static Func<Vector2, bool> Ellipses(List<Vector2> starts, List<Vector2> goals)
         {
             int count = starts.Count * goals.Count;
+            Vector2[] from = new Vector2[count];
+            Vector2[] to = new Vector2[count];
             float[] limit = new float[count];
-            Vector2[] middle = new Vector2[count];
-            float[] around = new float[count];
             for (int s = 0; s < starts.Count; s++)
             {
                 for (int g = 0; g < goals.Count; g++)
                 {
                     int k = s * goals.Count + g;
+                    from[k] = starts[s];
+                    to[k] = goals[g];
                     limit[k] = PathSearch.EllipseLimit(starts[s], goals[g]);
-                    middle[k] = (starts[s] + goals[g]) * 0.5f;
-                    around[k] = limit[k] * limit[k] * 0.25f;
                 }
             }
-            return at =>
+            Lazy<EllipseTree> tree = new Lazy<EllipseTree>(() => new EllipseTree(from, to, limit));
+            return at => tree.Value.Contains(at);
+        }
+
+        /// <summary>
+        /// Ellipses (two foci and the most their distances may add up to) in a quadtree: a square
+        /// wholly inside one of them, or outside all, answers without a test; one on an edge keeps
+        /// the few it may be in. Exact: a point is within half the square's diagonal of its
+        /// centre, so its two distances are within a diagonal of the centre's.
+        /// </summary>
+        private sealed class EllipseTree
+        {
+            /// <summary>A square this small, or with this few ellipses on it, is not cut further.</summary>
+            private const float Smallest = 16f;
+            private const int Few = 4;
+
+            private sealed class Node
             {
-                for (int s = 0; s < starts.Count; s++)
+                public bool Inside;
+                /// <summary>Null and no children: outside them all.</summary>
+                public int[] Candidates;
+                public Node[] Children;
+            }
+
+            private readonly Vector2[] from;
+            private readonly Vector2[] to;
+            private readonly float[] limit;
+            private readonly Vector2 corner;
+            private readonly float size;
+            private readonly Node root;
+
+            public EllipseTree(Vector2[] from, Vector2[] to, float[] limit)
+            {
+                this.from = from;
+                this.to = to;
+                this.limit = limit;
+                if (limit.Length == 0)
                 {
-                    for (int g = 0; g < goals.Count; g++)
+                    root = new Node();
+                    return;
+                }
+                // Each ellipse lies in the circle round the middle of its foci, half its limit wide.
+                Vector2 min = new Vector2(float.MaxValue, float.MaxValue);
+                Vector2 max = new Vector2(float.MinValue, float.MinValue);
+                int[] all = new int[limit.Length];
+                for (int k = 0; k < limit.Length; k++)
+                {
+                    Vector2 middle = (from[k] + to[k]) * 0.5f;
+                    float radius = limit[k] * 0.5f;
+                    min = Vector2.Min(min, middle - new Vector2(radius, radius));
+                    max = Vector2.Max(max, middle + new Vector2(radius, radius));
+                    all[k] = k;
+                }
+                corner = min;
+                size = Mathf.Max(max.x - min.x, max.y - min.y, Smallest);
+                root = Build(corner, size, all);
+            }
+
+            private Node Build(Vector2 at, float side, int[] candidates)
+            {
+                Vector2 centre = at + new Vector2(side, side) * 0.5f;
+                // Twice half the diagonal: how far apart the two distances' sums can be in the square.
+                float spread = side * 1.4143f;
+                List<int> kept = new List<int>();
+                foreach (int k in candidates)
+                {
+                    float sum = Vector2.Distance(centre, from[k]) + Vector2.Distance(centre, to[k]);
+                    if (sum + spread <= limit[k])
                     {
-                        int k = s * goals.Count + g;
-                        if ((at - middle[k]).sqrMagnitude <= around[k]
-                            && Vector2.Distance(at, starts[s]) + Vector2.Distance(at, goals[g]) <= limit[k])
-                        {
-                            return true;
-                        }
+                        return new Node { Inside = true };
+                    }
+                    if (sum - spread <= limit[k])
+                    {
+                        kept.Add(k);
+                    }
+                }
+                if (kept.Count == 0)
+                {
+                    return new Node();
+                }
+                int[] some = kept.ToArray();
+                if (some.Length <= Few || side <= Smallest)
+                {
+                    return new Node { Candidates = some };
+                }
+                float half = side * 0.5f;
+                Node[] children = new Node[4];
+                for (int i = 0; i < 4; i++)
+                {
+                    children[i] = Build(at + new Vector2((i & 1) * half, (i >> 1) * half), half, some);
+                }
+                return new Node { Children = children };
+            }
+
+            public bool Contains(Vector2 p)
+            {
+                if (p.x < corner.x || p.y < corner.y || p.x > corner.x + size || p.y > corner.y + size)
+                {
+                    return false;
+                }
+                Node node = root;
+                Vector2 at = corner;
+                float side = size;
+                while (node.Children != null)
+                {
+                    side *= 0.5f;
+                    int x = p.x >= at.x + side ? 1 : 0;
+                    int y = p.y >= at.y + side ? 1 : 0;
+                    at += new Vector2(x * side, y * side);
+                    node = node.Children[x + 2 * y];
+                }
+                if (node.Inside)
+                {
+                    return true;
+                }
+                if (node.Candidates == null)
+                {
+                    return false;
+                }
+                foreach (int k in node.Candidates)
+                {
+                    if (Vector2.Distance(p, from[k]) + Vector2.Distance(p, to[k]) <= limit[k])
+                    {
+                        return true;
                     }
                 }
                 return false;
-            };
+            }
         }
 
         /// <summary>
@@ -155,6 +275,7 @@ namespace OdinsPaths
         public Structures Without(List<Circle> circles)
         {
             Structures result = new Structures();
+            result.HarbourStones.AddRange(HarbourStones);
             foreach (List<Vector2> bucket in buckets.Values)
             {
                 foreach (Vector2 at in bucket)

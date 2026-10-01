@@ -35,7 +35,7 @@ namespace OdinsPaths
         private const string SourceLocation = "StartTemple";
         private static readonly int LinksKey = "OdinsPaths_HarbourLinks".GetStableHashCode();
         /// <summary>A landing this close to a harbour is that harbour: roads leaving one shore for different islands share their stone.</summary>
-        private const float Merge = 25f;
+        internal const float Merge = 25f;
         /// <summary>
         /// How far from an older road's shore point (rebuilt from its 8 m network points) its
         /// harbour stone may stand: on the dock or up the road, and the shore itself moves a little.

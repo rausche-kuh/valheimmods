@@ -92,10 +92,15 @@ server side only.
 
 ## Not taken from PLAN.md, and why
 
-- **Sampling in parallel (`Parallel.For`, `Task.Run`).** Wrong for this game: the generator's
-  river cache (`m_cachedRiverGrid`, `m_cachedRiverPoints`) is unlocked and shared with the
-  heightmap builder thread (`foundations.md`). PLAN.md itself lists it as unverified. The search
-  stays a time-sliced coroutine.
+- **Sampling in parallel (`Parallel.For`, `Task.Run`).** Turned down at first, when the
+  generator's river cache (`m_cachedRiverGrid`, `m_cachedRiverPoints`) was thought unlocked.
+  It is behind a `ReaderWriterLockSlim` in the current build, the rest of what the search
+  reads is arithmetic or read-only after `Initialize` (`FastNoise` is only set up there), and
+  only `GetBiomeArea(Vector2s)` keeps an unlocked cache (2026-10-01, `foundations.md`). The
+  search now runs on one thread of its own; `paths threads` checks many at once against one
+  and times them: 2.5× on four threads, a few seconds of a whole grow's 80. Dropped for now
+  (2026-10-01, the user): servers are mostly low powered, and the gain is not worth threading
+  the search.
 - **A two-layer land/sea state graph.** The sea share per cell with a boarding cost on the way
   out and a landing cost on the way in does the same - the switch is paid once per crossing -
   without doubling the state, and handles wide cells that are part sea.

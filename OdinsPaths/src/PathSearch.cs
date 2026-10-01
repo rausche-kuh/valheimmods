@@ -213,7 +213,7 @@ namespace OdinsPaths
             public float Sea;
             /// <summary>The share on lava, in the Ashlands.</summary>
             public float Lava;
-            /// <summary>Near a berth of the game's harbours (<see cref="Berths"/>): boarding or landing here is cheaper.</summary>
+            /// <summary>Near a harbour (<see cref="Berths"/>): boarding or landing here is cheaper.</summary>
             public bool Berth;
             /// <summary>Outside the bounds: never sampled, never entered.</summary>
             public bool Outside;
@@ -328,11 +328,22 @@ namespace OdinsPaths
         }
 
         /// <summary>
-        /// The berths of the game's harbours on the way (<see cref="Ports"/>), before <see cref="Run"/>:
-        /// a step boarding or landing within <see cref="Ports.Reach"/> of one pays
-        /// <see cref="Ports.Share"/> of the lump sum, so a crossing sets out from a pier that is there.
+        /// The harbours on the way, before <see cref="Run"/>: the berths of the game's
+        /// (<see cref="Ports"/>, within <see cref="Ports.Reach"/>) and the stones of the mod's own
+        /// (within <see cref="Harbours.Merge"/>, where a landing joins the harbour). A step boarding
+        /// or landing inside one pays <see cref="Ports.Share"/> of the lump sum, so a crossing sets
+        /// out from a harbour that is there rather than a new one beside it.
         /// </summary>
-        public List<Vector2> Berths;
+        public List<Circle> Berths
+        {
+            set
+            {
+                // Half a cell more: a cell counts if any of it may reach.
+                berths = value == null || value.Count == 0 ? null
+                    : new LocationGrid(value.ConvertAll(c => new Circle { Center = c.Center, Radius = c.Radius + CellSize * 0.5f }));
+            }
+        }
+        private LocationGrid berths;
 
         /// <summary>Whether a point is inside this search's bounds - its ellipses, or the rule it was given.</summary>
         public bool Contains(Vector2 p) => InBounds(p);
@@ -839,10 +850,9 @@ namespace OdinsPaths
                 {
                     cell.Factor *= StructureFactor;
                 }
-                if (Berths != null)
+                if (berths != null)
                 {
-                    float reach = Ports.Reach + CellSize * 0.5f;
-                    cell.Berth = Berths.Exists(b => (b - p).sqrMagnitude < reach * reach);
+                    cell.Berth = berths.Contains(p);
                 }
             }
             index = cells.Add(key);

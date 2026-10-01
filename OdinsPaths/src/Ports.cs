@@ -160,6 +160,7 @@ namespace OdinsPaths
                     due.Add(instance);
                 }
             }
+            List<Port> fresh = new List<Port>();
             due.Sort((a, b) => Nearest(Flat(a.m_position), goals).CompareTo(Nearest(Flat(b.m_position), goals)));
             int generated = 0;
             foreach (ZoneSystem.LocationInstance instance in due)
@@ -194,11 +195,14 @@ namespace OdinsPaths
                 {
                     known[zone] = read;
                     ports.Add(read);
+                    fresh.Add(read);
                 }
             }
+            // Each is read once and kept; only the ones read for this road are listed.
             if (ports.Count > 0)
             {
-                report?.Invoke(ports.Count + " of the game's harbours on the way: " + string.Join("; ", ports.ConvertAll(p => p.ToString())));
+                report?.Invoke(ports.Count + " of the game's harbours on the way, " + fresh.Count + " read now"
+                    + (fresh.Count > 0 ? ": " + string.Join("; ", fresh.ConvertAll(p => p.ToString())) : "") + ".");
             }
             done(ports);
         }

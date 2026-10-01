@@ -38,8 +38,6 @@ namespace OdinsPaths
         private const float MinLocationRadius = 8f;
         /// <summary>How far round a harbour building's pieces a zone generated later is cleared.</summary>
         private const float BuildingClear = 1.5f;
-        /// <summary>At most this many zones a frame, and more than one only while the frame's budget lasts.</summary>
-        private const int ZonesPerFrame = 4;
 
         private static readonly HashSet<string> PlainDrops = new HashSet<string>
         {
@@ -81,24 +79,29 @@ namespace OdinsPaths
         /// <summary>The zones that already exist along a freshly laid trail.</summary>
         public static IEnumerator Clear(Trail trail, Result result)
         {
+            return Clear(new List<Trail> { trail }, result);
+        }
+
+        /// <summary>The zones that already exist along several trails, each zone looked at once.</summary>
+        public static IEnumerator Clear(List<Trail> trails, Result result)
+        {
             Clearable();
-            Dictionary<Vector2s, List<int>> zones = TerrainWriter.ZonesNear(trail, trail.Kind.MaxHalfWidth + maxReach);
+            Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>> zones = TerrainWriter.ZonesNear(trails, trail => trail.Kind.MaxHalfWidth + maxReach);
             // A zone is a look at each of its objects and the pieces around it, and every tree
             // taken from a loaded zone is a GameObject destroyed.
             float budget = OdinsPathsPlugin.SearchBudgetMs.Value;
             System.Diagnostics.Stopwatch frame = System.Diagnostics.Stopwatch.StartNew();
             int count = 0;
-            int inFrame = 0;
-            foreach (KeyValuePair<Vector2s, List<int>> entry in zones)
+            foreach (KeyValuePair<Vector2s, List<KeyValuePair<Trail, List<int>>>> entry in zones)
             {
-                List<int> segments = entry.Value;
-                ClearZone(entry.Key, (at, reach) => TrailDistance(trail, segments, at) < trail.Kind.HalfWidthAt(at) + reach, true, result);
+                List<KeyValuePair<Trail, List<int>>> parts = entry.Value;
+                ClearZone(entry.Key, (at, reach) => parts.Exists(part => TrailDistance(part.Key, part.Value, at) < part.Key.Kind.HalfWidthAt(at) + reach), true, result);
                 Progress.Set((float)++count / zones.Count);
-                if (++inFrame == ZonesPerFrame || frame.Elapsed.TotalMilliseconds > budget)
+                // As many zones a frame as its budget lasts: at four a frame, a road's clearing took a second or more (2026-10-01).
+                if (frame.Elapsed.TotalMilliseconds > budget)
                 {
                     yield return null;
                     frame.Restart();
-                    inFrame = 0;
                 }
             }
         }

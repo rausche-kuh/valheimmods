@@ -189,5 +189,49 @@ namespace OdinsPaths
                 failed?.Invoke(error);
             }
         }
+
+        /// <summary>
+        /// Several coroutines stepped side by side, each to its next frame's wait, until all are
+        /// done: two worker waits of a few frames each cost the frames of the longer. A nested
+        /// coroutine is stepped into; anything else yielded counts as a frame.
+        /// </summary>
+        public static IEnumerator Together(params IEnumerator[] jobs)
+        {
+            List<Stack<IEnumerator>> stacks = new List<Stack<IEnumerator>>();
+            foreach (IEnumerator job in jobs)
+            {
+                Stack<IEnumerator> stack = new Stack<IEnumerator>();
+                stack.Push(job);
+                stacks.Add(stack);
+            }
+            while (true)
+            {
+                bool running = false;
+                foreach (Stack<IEnumerator> stack in stacks)
+                {
+                    while (stack.Count > 0)
+                    {
+                        IEnumerator top = stack.Peek();
+                        if (!top.MoveNext())
+                        {
+                            stack.Pop();
+                            continue;
+                        }
+                        if (top.Current is IEnumerator nested)
+                        {
+                            stack.Push(nested);
+                            continue;
+                        }
+                        break;
+                    }
+                    running |= stack.Count > 0;
+                }
+                if (!running)
+                {
+                    yield break;
+                }
+                yield return null;
+            }
+        }
     }
 }

@@ -58,7 +58,9 @@ thread with a per-frame budget, as it was first built, when the river cache had 
 reads the zone prefab once on the main thread first. `paths bench` measured **1.5 µs per sample** (40 000 in 61 ms, 2026-09-24).
 The exact zone build takes ~20 ms through `RequestTerrainSync`, but that is mostly waiting on the
 builder thread: its non-blocking twin `RequestTerrain` queues a zone and returns null until it is
-ready, so `TerrainWriter` asks for every zone at once and costs the main thread nothing for it.
+ready. That thread sleeps 10 ms after every zone and keeps only 16 ready, and a walking player's
+zones queue behind the mod's, so `TerrainWriter` calls the builder's own `Build` on threads of its
+own instead (2026-10-01): the same heights, without the queue.
 Heights the generator does not know about are player digging, the flattening that locations do
 with `TerrainModifier`, and vegetation: trees, rocks, the Mistlands' giant rock formations.
 
@@ -118,7 +120,7 @@ shows through it the way a hoed path does is a **verify** (expected: yes).
   at `zoneCenter.x - 32 + x`. The compiler prefab is **`_TerrainCompiler`**, placed at the zone
   centre with y 0. Water level 30.
 - `WorldGenerator.GetHeight` costs **1.5 µs** per sample. `RequestTerrainSync` for one zone takes
-  ~20 ms, mostly waiting on the builder thread - use `RequestTerrain` and poll instead.
+  ~20 ms, mostly waiting on the builder thread - call `HeightmapBuilder.Build` on a thread instead.
 - Search wall times at the 6 ms budget, one sample per cell (2026-09-24): to Yagluth 1 s at 64 m,
   4 s at 32 m, 16 s at 16 m, plus 6 s for the 4 m pass in its corridor; 32 m is good, 64 m alone
   hops into water. With five-point sampling `128 32:512 8:128` gave a good line to Yagluth 4.5 km

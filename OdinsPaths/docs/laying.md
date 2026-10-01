@@ -101,7 +101,10 @@ exactly as `PaintCleared` does, and alpha stays the base mask's. Then write the 
   blue runes (its shader, `Custom/StaticRock`, reads `_EmissionColor`; the material's
   `_EmissiveColor` is a stale value no property reads, seen in game 2026-09-26), its face to the road; a structure within 4 m of the shore point moves it up to
   10 m inland along the trail. A landing within 25 m of a stone already there is that stone's
-  harbour: roads setting out from one shore for different islands share it. Each stone's ZDO
+  harbour: roads setting out from one shore for different islands share it. The search knows
+  the stones (gathered with the structures) and charges a crossing that sets out or lands that
+  close to one only the share of a game pier's berth (`Ports.Share`), so a later road uses the
+  harbour there rather than starting a new one a little way along the shore (2026-10-01). Each stone's ZDO
   keeps the positions of the harbours across (`OdinsPaths_HarbourLinks`), both ways, and using
   it pins every one that still stands (pin `Harbour`, the portal icon), and the stone itself if
   the player has no pin there yet.

@@ -66,6 +66,11 @@ namespace OdinsPaths
         private static int collections;
         private static int hitchesCollected;
         private static int collectionsSeen;
+        /// <summary>Per stage of the job: wall time and frames spent in it, for the log; the side paths' stages summed.</summary>
+        private static readonly Dictionary<string, float> stageSeconds = new Dictionary<string, float>();
+        private static readonly Dictionary<string, int> stageFrames = new Dictionary<string, int>();
+        private static string timedStage = "";
+        private static float stageStarted;
 
         private static GUIStyle label;
         private static Texture2D back;
@@ -101,12 +106,18 @@ namespace OdinsPaths
             collections = 0;
             hitchesCollected = 0;
             collectionsSeen = GC.CollectionCount(0);
+            stageSeconds.Clear();
+            stageFrames.Clear();
+            timedStage = "";
+            stageStarted = Time.realtimeSinceStartup;
             Stage("", 0f, 0f);
         }
 
         /// <summary>A stage of the job, taking it from one share to another; poll, if given, is its own 0 to 1.</summary>
         public static void Stage(string text, float start, float end, Func<float> fractionOf = null)
         {
+            CloseStage();
+            timedStage = text;
             stage = text;
             from = start;
             to = end;
@@ -125,13 +136,35 @@ namespace OdinsPaths
             poll = null;
         }
 
-        /// <summary>The slowest frame of the job so far, where it fell, and how many were over 50 ms - for the log.</summary>
+        /// <summary>
+        /// The slowest frame of the job so far, where it fell, and how many were over 50 ms; then
+        /// the wall time and frames of each stage, longest first - for the log.
+        /// </summary>
         public static string Frames()
         {
+            CloseStage();
+            List<string> order = new List<string>(stageSeconds.Keys);
+            order.Sort((a, b) => stageSeconds[b].CompareTo(stageSeconds[a]));
+            System.Text.StringBuilder times = new System.Text.StringBuilder();
+            foreach (string name in order)
+            {
+                times.Append(times.Length > 0 ? ", " : "").Append(name.Length > 0 ? name : "between stages").Append(' ')
+                    .Append(stageSeconds[name].ToString("F1")).Append(" s / ")
+                    .Append(stageFrames.TryGetValue(name, out int frames) ? frames : 0).Append(" frames");
+            }
             return "slowest frame " + (worstFrame * 1000f).ToString("F0") + " ms"
                 + (worstStage.Length > 0 ? " (" + worstStage + ")" : "") + ", " + hitches + " over "
                 + (HitchSeconds * 1000f).ToString("F0") + " ms (" + hitchesCollected + " with a garbage collection), "
-                + collections + " collections";
+                + collections + " collections; time: " + times;
+        }
+
+        /// <summary>Adds the wall time since the last stage began to that stage.</summary>
+        private static void CloseStage()
+        {
+            float now = Time.realtimeSinceStartup;
+            stageSeconds.TryGetValue(timedStage, out float seconds);
+            stageSeconds[timedStage] = seconds + now - stageStarted;
+            stageStarted = now;
         }
 
         /// <summary>A line in every player's message log, if the settings allow.</summary>
@@ -170,6 +203,8 @@ namespace OdinsPaths
             bool collected = seen != collectionsSeen;
             collections += seen - collectionsSeen;
             collectionsSeen = seen;
+            stageFrames.TryGetValue(timedStage, out int frames);
+            stageFrames[timedStage] = frames + 1;
             if (dt > HitchSeconds)
             {
                 hitches++;
