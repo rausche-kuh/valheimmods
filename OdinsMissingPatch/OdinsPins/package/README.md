@@ -17,7 +17,7 @@ the pack. It works just as well on its own.
 
 | Tweak                | What it does                                                                                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auto pins**        | Dungeons, ores you strike and places like fuling villages, tar pits and dragon eggs are pinned when you come close. Pins are shared with every player online. |
+| **Auto pins**        | Dungeons, ores you strike and places like fuling villages, tar pits, surtling fire holes and dragon eggs are pinned when you come close. Pins are shared with every player online. |
 | **Pin looks**        | Pins are coloured by biome and get their own icons, which name the place on hover. Toggles on the large map show or hide each kind.                           |
 | **Death pins**       | A death pin disappears once your grave is gone.                                                                                                               |
 | **Shared map table** | Walk up to a cartography table and your map and its map merge, no click needed.                                                                               |

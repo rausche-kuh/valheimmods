@@ -13,3 +13,4 @@
 - Pin looks: Burial Chambers, Troll Caves and Winding Tunnels get icons of their own instead of
   the plain door, fuling villages and tar pits get icons too, and every map icon is now drawn at
   the same size.
+- Auto pins: the surtling fire holes of the swamp are pinned as places.

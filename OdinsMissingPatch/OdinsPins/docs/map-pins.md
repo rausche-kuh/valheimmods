@@ -114,10 +114,10 @@ Before any rule, a location holding a `Vegvisir` is ruled out: the stone pins it
 which is all the ruin is for, so a pin of its own is clutter. `PlaceList` still wins, so a vegvisir
 ruin named there is pinned.
 
-What is left over holds nothing that names it: houses, huts, shipwrecks, runestones, the Dvergr
-sites. The Dvergr sites are worth a pin and are the default `PlaceList`. Against the game's table
+What is left over holds nothing that names it: houses, huts, shipwrecks, runestones, the fire hole, the Dvergr
+sites. The Dvergr sites and the surtling fire hole are worth a pin and are the default `PlaceList`. Against the game's table
 as of 2026-09-23 the rules pin all 12 interiors, 7 generated places, 3 tar pits and the drake nest
-and rule out 16 vegvisir ruins; the list adds the 10 Dvergr sites. (The two outdoor places of
+and rule out 16 vegvisir ruins; the list adds the 10 Dvergr sites and the fire hole. (The two outdoor places of
 mystery and the Deep North memorial were in the list until vegvisirs were dropped; they are
 vegvisir ruins too.)
 
@@ -316,8 +316,9 @@ left free for the player's own pins.
 Default `PlaceList`, from the game's location table (BetterMap's `Mistlands_GuardTower1-3` no
 longer exist; the towers are `_new` and `_ruined_new` now): `Mistlands_Excavation1-3`,
 `Mistlands_GuardTower1-3_new`, `Mistlands_GuardTower1_ruined_new`, `_ruined_new2`,
-`Mistlands_GuardTower3_ruined_new` and `Mistlands_Lighthouse1_new`, each with its
-`$omp_place_*` token in `AutoPins.DefaultPlaces`. Translations: `$omp_dungeon`, nine
+`Mistlands_GuardTower3_ruined_new`, `Mistlands_Lighthouse1_new` and the swamp's `FireHole`
+(surtling spawners round a gas flame, no label, no rule), each with its `$omp_place_*` token in
+`AutoPins.DefaultPlaces`. Translations: `$omp_dungeon`, ten
 `$omp_place_*` (the rules' and the list's names) and the three toggle labels `$omp_map_*`. Dungeons, ore and treasure are named by the
 game's own tokens (`$location_*`, `$item_*`) and need no row.
 

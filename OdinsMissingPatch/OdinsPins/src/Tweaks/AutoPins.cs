@@ -45,7 +45,8 @@ namespace OdinsMissingPatch
 
         /// <summary>
         /// The places no rule sees, pinned by default, each with the token its pin is named by -
-        /// the Dvergr sites of the Mistlands hold nothing that sets them apart from a ruin. Names
+        /// the Dvergr sites of the Mistlands hold nothing that sets them apart from a ruin, and the
+        /// swamp's fire hole is a gas flame with surtling spawners and no label. Names
         /// from the game's location table as of the Deep North; the icon-flagged ones (boss
         /// altars, traders, Hildir, the bog witch, the Forge) are drawn by the game already and
         /// never belong here.
@@ -62,6 +63,7 @@ namespace OdinsMissingPatch
             { "Mistlands_GuardTower1_ruined_new2", "$omp_place_guardtower" },
             { "Mistlands_GuardTower3_ruined_new", "$omp_place_guardtower" },
             { "Mistlands_Lighthouse1_new", "$omp_place_lighthouse" },
+            { "FireHole", "$omp_place_firehole" },
         };
 
         private static readonly PinType[] AllowedIcons =
