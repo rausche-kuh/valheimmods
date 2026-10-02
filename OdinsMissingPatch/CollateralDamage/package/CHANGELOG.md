@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
 
 - First release. A troll's swing and ground slam hit the greydwarfs in the way, Eikthyr's
   lightning hits the dwarfs in his arena, Yagluth's meteors hit fulings and lox, and so on for

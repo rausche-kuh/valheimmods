@@ -1,12 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
 
 - First release on its own. These tweaks were part of Odin's Missing Patch, which is now a pack
   of smaller mods: nearby crafting, quick stack, station refill, chest buttons and inventory
   buttons.
-- Your settings from Odin's Missing Patch are carried over on the first start, wherever a
-  setting kept its name.
 - A tweak switched off when the game starts doesn't touch the game at all, so switching off one
   that clashes with another mod (and restarting) lets both run. A few tweaks switched on mid game
   wait for the next start; their `Enabled` setting says so.

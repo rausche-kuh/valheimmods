@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
 
 - First release. Hold `Y` and your character rises into the Forsaken power pose, wreathed in its
   fire, while every item lying around flies to your feet — from 10m after a second, and further
