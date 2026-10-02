@@ -58,8 +58,12 @@ URL. Put screenshots and clips in the repo's top level `images/` (it is not zipp
 by their raw GitHub URL:
 
 ```markdown
-![A friend's marker on the map](https://raw.githubusercontent.com/rausche-kuh/valheimmods/main/images/friend_marker.webm)
+![A friend's marker on the map](https://raw.githubusercontent.com/rausche-kuh/valheimmods/main/images/friend_marker.webp)
 ```
+
+Clips must be animated WebP (or GIF): a markdown image is an `<img>`, which cannot play webm or
+mp4, and Thunderstore strips `<video>`. `ffmpeg -i clip.webm -vf fps=20,scale=720:-1 -c:v libwebp
+-q:v 50 -loop 0 clip.webp` keeps a short clip small.
 
 The image only shows once the commit is pushed. Links to `main` always show the current file, so
 rename rather than overwrite when an old image should stay as it was, or use a tag in place of
