@@ -36,6 +36,7 @@ them change a lot:
 | **Nearby crafting** | Crafting, upgrading and building also take materials from nearby chests. Your backpack pays first.                                                                                |
 | **Area repair**     | One hammer repair fixes every damaged piece around you. Hold `Left Alt` to repair just one.                                                                                       |
 | **Auto repair**     | Using a crafting station repairs all your gear, including gear from its sister stations if they are built nearby.                                                                 |
+| **Build in water**  | The hammer and the pickaxe stay in your hand while swimming, so you can build docks and mine rocks without going ashore. Everything else is still put away.        |
 | **Endless fuel** ⚖️ | Campfires, hearths, torches, braziers and hot tubs never go out.                                                                                                                  |
 
 ### Chests and inventory
@@ -136,6 +137,7 @@ enforced by a server. **⛔ Don't run both of a pair.**
 | Area repair               | [Venture Area Repair](https://thunderstore.io/c/valheim/p/VentureValheim/Venture_Area_Repair/), [AzuAreaRepair](https://valheim.hexium.gg/mods/Azumatt/AzuAreaRepair) | Here the radius and the single repair key are settings.                             |
 | Chest tweaks, auto repair | [SmartCraft-Storage](https://thunderstore.io/c/valheim/p/Zellds/SmartCraftStorage/)                                                                                   | Goes much further with automation. This one keeps every action yours.               |
 | Equip while running       | [EquipGearWhileRunning](https://thunderstore.io/c/valheim/p/blacks7ar/EquipGearWhileRunning/)                                                                         | Drop-in, nothing to configure.                                                      |
+| Build in water            | [UseEquipmentInWater](https://thunderstore.io/c/valheim/p/LVH-IT/UseEquipmentInWater/)                                                                                | Lets you use all your gear in water, weapons included.                              |
 | Auto shield               | [ShieldMeBruh](https://thunderstore.io/c/valheim/p/Vapok/ShieldMeBruh/)                                                                                               |                                                                                     |
 | Pocket upgrades           | [EarlyHaldorPockets](https://valheim.hexium.gg/mods/chooweey/EarlyHaldorPockets)                                                                                      |                                                                                     |
 | Auto pins                 | [Discovery Pins](https://thunderstore.io/c/valheim/p/Searica/DiscoveryPins/)                                                                                          | Mass-pins on a key. This one shares pins with other players and through map tables. |

@@ -34,6 +34,7 @@ namespace OdinsMissingPatch
             InventoryButtons.Instance,
             PowerPicker.Instance,
             EquipWhileRunning.Instance,
+            BuildInWater.Instance,
             AutoShield.Instance,
             PocketUpgrades.Instance,
             SharedMapTable.Instance,

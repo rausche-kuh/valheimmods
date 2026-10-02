@@ -1,6 +1,6 @@
 # Equipping
 
-EquipWhileRunning, AutoShield.
+EquipWhileRunning, BuildInWater, AutoShield.
 
 ## EquipWhileRunning
 
@@ -37,6 +37,24 @@ EquipWhileRunning, AutoShield.
   a swing, a block, a bow draw and the guardian power (`Humanoid.StartAttack`,
   `Humanoid.IsBlocking`, `Player.UpdateAttackBowDraw`, `Player.StartGuardianPower`) but not
   the run itself: `Character.CheckRun` never asks for it.
+
+## BuildInWater
+
+- Swimming takes the hands away in two places, both behind `IsPlayer() && IsSwimming() &&
+  !IsOnGround()`: `Humanoid.UpdateEquipment` calls `HideHandItems()` every tick, and
+  `Humanoid.EquipItem` refuses to equip anything. Nothing on the way to a swing
+  (`Humanoid.StartAttack`, `Attack.Start`) or a placement (`Player.UpdatePlacement`) asks about
+  swimming, so a tool that stays in hand works as on land.
+- `HideHandItems` has other callers (the hide key, a crafting station, a chair, eating), so the
+  tweak does not patch it away but flags the frames `UpdateEquipment` is on the stack, like
+  `EquipWhileRunning`. Under the flag only the off hand goes, put into `m_hiddenLeftItem` the way
+  vanilla hides it, so the hide key brings a torch or shield back on land.
+- `EquipItem`'s check sits in the middle of a dozen refusals, so a transpiler replaces its one
+  `IsSwimming` call with `BuildInWater.SwimmingBlocks(this, item)`. If a game update drops that
+  call the transpiler throws and `Patcher` switches the tweak off.
+- A tool is anything with `m_buildPieces` (the hammer, and the hoe and cultivator for free) or an
+  item with `m_skillType == Pickaxes`. Vanilla never re-draws hidden items when the player leaves
+  the water; the hide key does.
 
 ## AutoShield
 

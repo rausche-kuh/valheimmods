@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added: build in water. The hammer and the pickaxe stay in your hand while you swim, and you
+  can take them out in deep water, so docks and piers no longer mean wading back to shore.
+  Weapons, shields and torches are still put away.
 - **Settings reorganised; changed values are not carried over.** Check the config file after
   updating:
   - Station range, comfort range and mist clear range are one tweak, **Ranges**, with one

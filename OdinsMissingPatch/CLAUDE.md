@@ -3,7 +3,7 @@
 A collection of quality of life changes, each one its own configurable tweak. See the root
 `CLAUDE.md` for the shared build, the scripts and the environment.
 
-Twenty-four tweaks are in the source, registered in `Tweaks` in `src/OdinsMissingPatch.cs`;
+Twenty-five tweaks are in the source, registered in `Tweaks` in `src/OdinsMissingPatch.cs`;
 `docs/tweaks.md` says what each one does, its scope (client, world state, character) and which
 doc covers it. `ROADMAP.md` is what comes next and the known bugs.
 

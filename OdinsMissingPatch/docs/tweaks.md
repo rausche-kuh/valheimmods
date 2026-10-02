@@ -30,6 +30,7 @@ Fill the chest and Sort off the hotbar row, and `ThreatRadius`, `EnragedEnemies`
 | InventoryButtons | client (chest writes go to the open chest) | [inventory-ui](inventory-ui.md), [item-order](item-order.md) |
 | PowerPicker | character | [radial-menu](radial-menu.md) |
 | EquipWhileRunning | client | [equipping](equipping.md) |
+| BuildInWater | client | [equipping](equipping.md) |
 | AutoShield | client | [equipping](equipping.md) |
 | PocketUpgrades | client | [trader](trader.md) |
 | SharedMapTable | world state (map tables, the game's own write) | [map-pins](map-pins.md) |
@@ -132,6 +133,11 @@ Fill the chest and Sort off the hotbar row, and `ThreatRadius`, `EnragedEnemies`
   lands once the player slows down; the wipe is dropped for equips and unequips under a flag
   set while `CheckRun` runs, and still drops a queued crossbow reload. Attack, jump and dodge
   clear the queue as before.
+- **Build in water** — the hammer (anything with build pieces) and the pickaxe stay in hand
+  while swimming and can be drawn there; every other item is still put away, and the off hand
+  is emptied. Skips the swim's `HideHandItems` under a flag set while `Humanoid.UpdateEquipment`
+  runs, and a transpiler swaps `Humanoid.EquipItem`'s `IsSwimming` refusal for one that waives it
+  for those tools.
 - **Auto shield** — equipping a one handed weapon raises a shield with it, when the off hand comes
   out of the equip empty. A `Player.ToggleEquipped` prefix records the weapon a press is for, and a
   `Humanoid.EquipItem` postfix acts on that item alone, so restoring gear at login, taking hands

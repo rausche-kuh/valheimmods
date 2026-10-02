@@ -29,10 +29,6 @@ with it, which is the point of a shorter night but should be stated.
 
 **Credits:** the idea is copied from https://thunderstore.io/c/valheim/p/Vapok/BetterSleepBruh/
 
-## Use Equipment in Water
-
-https://thunderstore.io/c/valheim/p/LVH-IT/UseEquipmentInWater/
-
 # Bugs
 
 None known.
