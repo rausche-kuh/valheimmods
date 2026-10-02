@@ -37,6 +37,15 @@ namespace OdinsPaths
         internal static ConfigEntry<float> SpurPrize;
         internal static ConfigEntry<string> PointsOfInterest;
         internal static ConfigEntry<string> Progression;
+        /// <summary>How far along the progression the main roads lead.</summary>
+        internal enum ProgressionReach
+        {
+            /// <summary>Every boss of the list from the start, the network as it ends up.</summary>
+            Everything,
+            /// <summary>Up to the second boss not yet defeated, one more each time a boss falls.</summary>
+            Progression,
+        }
+        internal static ConfigEntry<ProgressionReach> Reach;
         /// <summary>
         /// Every boss in order: the Queen's location is her dungeon's entrance, and the Deep North's
         /// boss (the Frozen King) sits in DN_Bossroom - both from their vegvisirs, and every key from
@@ -144,8 +153,8 @@ namespace OdinsPaths
                 new AcceptableValueRange<float>(0f, 1f)));
             Progression = Config.Bind("Network", "Progression", DefaultProgression,
                 "The boss altars main roads lead to, in order, each as location:key - the location's prefab " +
-                "name and the global key its boss's defeat sets. Roads lead up to the second boss not yet " +
-                "defeated, and one more each time a boss falls. Remove an entry to leave its boss without a road. " +
+                "name and the global key its boss's defeat sets. Reach decides how far along it the roads lead. " +
+                "Remove an entry to leave its boss without a road. " +
                 "Locations joined by | count as one (any of them will do), and *n asks for n roads, each to " +
                 "another one: the infected mines before the Queen, where her seal's fragments are, and the charred " +
                 "fortresses before Fader. A leading ~ makes a side road: dirt, from wherever the roads are nearest " +
@@ -157,6 +166,10 @@ namespace OdinsPaths
             {
                 Progression.Value = DefaultProgression;
             }
+            Reach = Config.Bind("Network", "Reach", ProgressionReach.Everything,
+                "How far along the progression the main roads lead. Everything: to every boss of the list from " +
+                "the start - the first growth of a new world then takes a few minutes. Progression: up to the " +
+                "second boss not yet defeated, and one more on the next sleep after a boss falls.");
             Style = Config.Bind("Network", "Style", PlayStyle.Explore,
                 "Which of a boss's altars or a trader's camps a road goes to. Explore: Fader's and the Frozen " +
                 "King's in the middle of their biome, so the road crosses it, and Hildir's and the Bog Witch's " +

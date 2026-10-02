@@ -70,7 +70,7 @@ side roads pick up (the user's "one to three other points of interest along the 
 Potential** (`AncientUpgradeStation`, `$piece_upgradestation`, ext 16 m, Mountain biome in its
 `Location`) as a main road under `defeated_dragon`, due with Moder. A config
 still holding a previous default takes the new one. Entries sharing a key are one step of the progression (the mines do not push the Queen out of
-the two undefeated bosses due). The roads are pinned as `group #1` to `#3`; a road to a mine
+the two undefeated bosses due with `Reach` Progression). The roads are pinned as `group #1` to `#3`; a road to a mine
 skips the mines its siblings lead to. Found in the same preview: the road to the Queen went as
 close as it could by boat, which is right, but a player has to find mines anyway.
 
@@ -156,9 +156,11 @@ revealed - for players who want to search for them, which fits camps that move.
 
 ## When it grows
 
-- **At server start**, on a new world or an old one: the main roads up to the **second
-  undefeated boss** in the list, the traders, and their spurs.
-- **On the next sleep** after a boss falls (the next group), after a trader is placed elsewhere
+- **At server start**, on a new world or an old one: the main roads to **every boss** in the
+  list, the traders, and their spurs - the whole network from the start (the user, 2026-10-01).
+  `[Network] Reach = Progression` keeps the old growth: up to the **second undefeated boss**,
+  and one more group on the next sleep after a boss falls.
+- **On the next sleep** after a trader is placed elsewhere
   than its road leads, and
   after a new base appears (a road from the base to the nearest network point, with the same
   search and the base as a hub).

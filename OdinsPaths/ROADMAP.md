@@ -2,23 +2,23 @@
 
 The design behind each entry is in `docs/`: `architecture.md` (every source file),
 `foundations.md` (terrain data, triggers, the facts verified in game), `search.md`, `laying.md`,
-`network.md`, `biomes.md`, `docks.md`, `signposts.md`, `prior-art.md`.
+`network.md`, `biomes.md`, `docks.md`, `signposts.md`, `ferry.md`, `prior-art.md`.
 
 ## Up next
 
-- **Stutter, if a growth still hitches** (see "To check in game"): a harbour's dock and buildings
-  over frames (`Builder`); the clearing one zone a frame with the structures already gathered.
 - **Signposts** (built 2026-10-01, `docs/signposts.md`): run `paths signs` / `paths signs place`
   in game - its "To check in game" list. Then: a post at the sacrificial stones and at a base,
   spur forks (a single board naming the spur's place, behind a setting), the words as
   translations.
+- **Road ends** (seen 2026-10-01): roads that go round an Eikthyr altar without reaching it, or
+  stop short of their place. Find out first whether it is the pinned instance or another one
+  (next entry) and whether the new structure distance stop sends the road round it.
+- **Altars and places passed by** (the user, 2026-10-01): a road passing near another instance
+  of a boss altar (or a pinned group's other instances) gives it a spur, as a point of interest
+  does - today only the pinned instance is connected.
+- **Close but unconnected main roads** (the user, 2026-10-01; with "Webbing" below): two main
+  roads that pass close without meeting get a link between them, main roads only.
 - **From Procedural Roads' PRs** (read 2026-10-01, `docs/prior-art.md`), in order:
-  - **Location terrain at road ends:** the game applies a location's own `TerrainModifier`
-    levelling before our deltas, and the writer's skip circles leave out the start and goal
-    locations (`PathLayer.LocationsAround`), so deltas there are off (theirs up to 9 m). Read
-    the prefab's level/smooth radius and keep the levelling out of it.
-  - **End-aware profile:** `Trail`'s ±5 point mean is one-sided at road ends and at the water
-    break - a shelf on slopes. Fit a line there instead.
   - **Batter for deep cuts:** the shoulder is a fixed 1.5 m while a main road cuts up to 4 m;
     widen it with the cut depth past ~2 m, cuts only.
   - **Border rocks:** a new zone's clearing reads only its own paint, so a rock rooted there
@@ -38,9 +38,11 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - dialing in presets for shortest exploration / see or land focused exploration
 - Connection of bases
 - **Webbing** networks get addtional paths in between
+- **Structure distance stop** (the user's, 2026-10-01: roads keep off structures): polish, lower tier.
 - Swamp paths should be dirt
 - structure road ends: paint dirt without leveling - trying a wider area to mask not knowing the "stair" position
-- **Harbour blueprints:** only the bare minimum ships, to be replaced: `WoodJetty` (the one
+- **Harbour blueprints** (the user's own work in PlanBuild; harbours have a working foundation,
+  seen 2026-10-01, but want polish and variants): only the bare minimum ships, to be replaced: `WoodJetty` (the one
   dock, old format) and `WoodHut` (the one building). Every biome builds those until it has
   its own; the user makes them with PlanBuild (`docs/docks.md`). No building joins a dock yet
   (a `dock` sign).
@@ -55,7 +57,7 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
   lit lamps, crates and barrels.
 - **The ferryman:** a ghost beside each harbour stone, there only at night, who takes the player
   to a linked harbour for coins (or a late meal for far trips and the Ashlands / Deep North).
-  Plan in `docs/ferry.md`; after the harbour stones are verified in game.
+  Plan in `docs/ferry.md`; the harbour stones work in game (2026-10-01).
 - **Wrecks at the harbours.** A `wreck` blueprint kind from the game's wreck parts
   (`shipwreck_karve_*`, `shipwreck_vikingship_*`; **verify** they spawn by name through
   `ZNetScene`), laid in the shallows beside a harbour so it feels alive.
@@ -70,21 +72,14 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 ## To check in game
 
-- **Traders settled** (2026-10-01, `docs/network.md`): after a growth, Haldor's, Hildir's and
-  the Bog Witch's icons on the map at their road's end before anyone goes there, the log's
-  "settled at ... other camps dropped", the trader standing there when the zone generates, still
-  there after a restart (the save keeps the trimmed list), a client's map too; with
-  `RevealTraders` off no trader road and no icon.
+Seen working 2026-10-01: the traders settled and revealed at their road's end, the harbour
+stones revealing each other, harbours as a foundation, no stutter in a growth.
+
 - **Names:** `$npc_haldor` / `hildir` / `bogwitch` in the messages are guesses.
 - **The game's harbours** (`paths ports` near a `Mistlands_Harbour1`, then a `paths lay` across
   the sea to it): the pins on the berth and the pier's land end (the turn read from the crane),
   the road led down the pier and round the hut, the stone beside the land end (its height), no
   dock, buildings outside the harbour, how long a harbour's zone takes to generate (the log).
-- **Stutter:** a full `paths grow all` (2026-10-01, 21 roads in 128 s) had no hitch with a
-  garbage collection and none left in "Looking at what stands in the way"; its slowest frames
-  (59-367 ms, roads with sea crossings) were the harbours being built, put down to the clearing.
-  They now build one per frame under their own stage - check which stage the next growth names,
-  and split a harbour's dock from its buildings if one harbour alone is still a hitch.
 - **Docks and harbour buildings** (`docs/docks.md`): never run yet; the quay and the pads
   (2026-10-01) with them - its "To check in game" list.
 - **2026-10-01 changes:** no grass in a dirt/stone fade (`Trail.Handover`), a player's broken
@@ -99,25 +94,5 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 # Bugs
 
-- (none open; the traders' reveal is under "To check in game")
-
-Nothing is released. Risks to watch:
-
-- An exception in a road now stops the growth (`Grower.Guarded`) without marking the job: its
-  half-written terrain stays, the road is not in the network, and the next trigger tries again.
-  `paths preview` is not guarded.
-- `paths undo` takes back only the last job, not cleared trees and rocks or links added to an
-  older harbour; `paths reset confirm` takes everything, the player's digging too.
-- A settled trader's dropped camps do not come back with `paths undo` / `reset`: the trader stays
-  where its first road led.
-- A base is stored by its first ward; a base that moves over 150 m gets a second road.
-- A compiler created while a client generates the same zone - verify no vanilla path does that.
-- In a zone generated after its road, vegetation on the shoulder can float or sink a little.
-- A harbour stone's height beside the road (the lower of `Ground.Height` and the road) - verify.
-- A rock without meshes counts as 2.5 m wide; a scattered MineRock5 may be cleared early.
-- A player digging in a zone while the server rewrites it: last writer wins, whoever owns the
-  compiler. Accepted - growth is not meant to run while players change the world, and the server
-  winning is fine.
-- Our pre-written compiler in an ungenerated zone: if generation ever makes a second one, the
-  game keeps the one with more operations (`TerrainComp.Awake`) - ours has one. Verify no
-  location carries a `TerrainOp`.
+- Roads that go round an Eikthyr altar without reaching it (under "Up next", road ends).
+- vegetation / stones / sticks can float or sink when comming near

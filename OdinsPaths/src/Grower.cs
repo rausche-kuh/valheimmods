@@ -7,7 +7,8 @@ namespace OdinsPaths
 {
     /// <summary>
     /// When the network grows (docs/network.md): once the world is up on the server, everything
-    /// the planner has due - the main roads up to the second undefeated boss, the traders already
+    /// the planner has due - the main roads to every boss (with <c>Reach</c> Progression up to the second
+    /// undefeated one), the traders already
     /// there, the bases, each with its spurs; then on every night slept through, whatever became
     /// due since - a boss fell, a trader's camp was generated, a base was warded. The sleep's time
     /// skip is 12 seconds, so a short road is there at wake up and a long one soon after.

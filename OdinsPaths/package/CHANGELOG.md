@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The whole road network is laid from the start: roads lead to every boss's altar, not only to
+  the next two. Set `[Network] Reach` to `Progression` to have a new road appear each time a boss
+  falls instead.
 - A road to a trader now always ends at the trader: Haldor, Hildir and the Bog Witch settle in the
   camp their road leads to, and it shows on everyone's map as soon as the road is there. Turn
   `[Network] RevealTraders` off to have no roads to the traders and search for them yourself.

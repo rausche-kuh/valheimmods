@@ -7,7 +7,8 @@ namespace OdinsPaths
 {
     /// <summary>
     /// What the network lays next, and laying it (docs/network.md). The main locations come in
-    /// order: the boss altars of the progression list up to the second one not yet defeated, the
+    /// order: the boss altars of the progression list (all of them, or with <c>Reach</c> Progression
+    /// up to the second one not yet defeated), the
     /// traders (their camps generated or not), the custom main locations, then every base without a road.
     /// Each is one <see cref="Job"/>: a search from the hubs and the network to every instance of the
     /// group, the cheapest taken and pinned - or, for a group in <c>[Network] Central</c>, to the
@@ -87,8 +88,9 @@ namespace OdinsPaths
 
         /// <summary>
         /// Every job due now, in order. Groups already pinned, unreachable, or missing from the
-        /// world are left out; so is every boss after the second undefeated one. With everything
-        /// set (a dev preview of the whole network), every boss of the list is due. A
+        /// world are left out; with <c>Reach</c> Progression, so is every boss after the second
+        /// undefeated one. With everything set (a dev preview of the whole network), every boss of
+        /// the list is due whatever <c>Reach</c> says. A
         /// trader is due from the start, its camps generated or not, unless <c>RevealTraders</c> is
         /// off: the road leads to the camp it chose, where the trader is then settled (<see cref="Traders"/>).
         /// </summary>
@@ -106,7 +108,7 @@ namespace OdinsPaths
                 Boss boss = bosses[b];
                 if (!ZoneSystem.instance.GetGlobalKey(boss.Key) && !undefeated.Contains(boss.Key))
                 {
-                    if (!everything && undefeated.Count >= 2)
+                    if (!everything && OdinsPathsPlugin.Reach.Value == OdinsPathsPlugin.ProgressionReach.Progression && undefeated.Count >= 2)
                     {
                         break;
                     }
