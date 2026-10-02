@@ -171,6 +171,9 @@ an order with meaning.
     level and support on tilted pieces is unknown. Check it in game before relying on it.
 - Bridges reuse the harbour's machinery: a blueprint per span, `Builder` raising it, piles to
   the ground.
+- **Limits** (from Procedural Roads' PRs, read 2026-10-01): 16 m free span (20 m falls), piers
+  ~18 m at most, the hammer turns in 22.5° steps (so a level deck); crossings already reached by
+  road cost half.
 
 ### 5. A check after placing
 

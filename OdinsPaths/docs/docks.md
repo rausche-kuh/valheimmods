@@ -306,3 +306,10 @@ drop their third as any ruin does, each only where it is found anyway.
 - Blueprints built in game to replace the shipped two, and docks and buildings for every
   biome: pitched roofs, doors, railings, a `dock` sign on a building.
 - Spurs' minor harbours still get only a post.
+- **Wrecks** beside a harbour: a `wreck` blueprint kind from the game's wreck parts
+  (`shipwreck_karve_*`, `shipwreck_vikingship_*`; **verify** they spawn by name through
+  `ZNetScene`), laid in the shallows.
+- **Spurs to the game's wrecks**, only if cheap to search: `ShipWreck01`-`04` (Swamp, Black
+  Forest, Plains, Ocean shores), `ShipWreck01_DN` / `02_DN` (Deep North shore), `FrozenShip01`-`03`
+  (Deep North, in the ice). Most lie in water or ice, so a spur ends at the nearest shore, and
+  wrecks close together share one spur.
