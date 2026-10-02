@@ -11,11 +11,7 @@ namespace OdinsMissingPatch
     /// swim or swing. The moment something hostile comes close, or something that has spotted
     /// you gives chase, every cost is back at full price, mid swing if need be.
     ///
-    /// Three things put you in combat: a hostile creature inside the threat radius, whether it has
-    /// noticed you or not, an enraged enemy - one that is alerted and has you as its target - at
-    /// any distance, and a boss health bar on screen. The second is what makes running from a
-    /// troll cost stamina even once it is 30m behind you; the third covers a boss that is not
-    /// coming for you right now - Moder circling, Bonemass lumbering, a boss after another player.
+    /// What counts as combat is <see cref="Danger"/>, shared with the item magnet.
     /// </summary>
     internal sealed class CombatStamina : Tweak
     {
@@ -23,30 +19,12 @@ namespace OdinsMissingPatch
 
         private CombatStamina() { }
 
-        // How often the loaded characters are searched for a threat. Every frame would be waste,
-        // and a quarter second is well below anything a player notices.
-        private const float CheckInterval = 0.25f;
-
-        // How long a monster's "alerted, and you are my target" report keeps you in combat. The
-        // game's own targeted indicator trusts the same reports for one second; the extra half
-        // absorbs the network jitter of reports from monsters another player owns.
-        private const float EnragedMemory = 1.5f;
-
-        private ConfigEntry<float> threatRadius;
-        private ConfigEntry<bool> enragedEnemies;
-        private ConfigEntry<bool> bossFights;
         private ConfigEntry<bool> freeSprint;
         private ConfigEntry<bool> freeJump;
         private ConfigEntry<bool> freeSwim;
         private ConfigEntry<bool> freeSneak;
         private ConfigEntry<bool> freeBuild;
         private ConfigEntry<bool> freeAttacks;
-
-        private float lastCheck = float.NegativeInfinity;
-        private bool inCombat;
-
-        // When an alerted monster last reported the local player as its target.
-        private float lastEnraged = float.NegativeInfinity;
 
         // True while a Player method whose one stamina spend this tweak waives is running, so the
         // UseStamina patch knows to drop the spend it is about to see.
@@ -61,16 +39,6 @@ namespace OdinsMissingPatch
 
         protected override void Bind(ConfigFile config)
         {
-            threatRadius = config.Bind(Section, "ThreatRadius", 25f, new ConfigDescription(
-                "Metres. A hostile creature closer than this puts you in combat, whether it has " +
-                "noticed you or not.",
-                new AcceptableValueRange<float>(0f, 200f)));
-            enragedEnemies = config.Bind(Section, "EnragedEnemies", true,
-                "An enemy that has noticed you and is coming for you puts you in combat at any " +
-                "distance, not only inside ThreatRadius. Off means only the radius counts.");
-            bossFights = config.Bind(Section, "BossFights", true,
-                "Every cost applies while a boss health bar is on screen, whoever the boss is " +
-                "after and however far away it is.");
             freeSprint = config.Bind(Section, "FreeSprint", true,
                 "Sprinting costs nothing out of combat.");
             freeJump = config.Bind(Section, "FreeJump", true,
@@ -97,59 +65,7 @@ namespace OdinsMissingPatch
         private bool Waives(ConfigEntry<bool> cost, Character character)
         {
             Player player = Player.m_localPlayer;
-            return On && cost.Value && player != null && character == player && !InCombat(player);
-        }
-
-        private bool InCombat(Player player)
-        {
-            if (Time.time - lastCheck < CheckInterval)
-            {
-                return inCombat;
-            }
-            lastCheck = Time.time;
-            inCombat = Enraged() || BossBarShowing() || HostileWithin(player, threatRadius.Value);
-            return inCombat;
-        }
-
-        private bool Enraged()
-        {
-            return enragedEnemies.Value && Time.time - lastEnraged < EnragedMemory;
-        }
-
-        /// <summary>
-        /// The boss bar is the game's own "boss fight" verdict: an alerted boss within
-        /// EnemyHud.m_maxShowDistanceBoss (100m) of the local player.
-        /// </summary>
-        private bool BossBarShowing()
-        {
-            return bossFights.Value && EnemyHud.instance != null && EnemyHud.instance.ShowingBossHud();
-        }
-
-        /// <summary>
-        /// Hostility is the game's own verdict, not a list of prefab names: tamed animals and
-        /// other players are ignored, a boar that has not noticed you still counts, an aggravated
-        /// dvergr counts, and anything another mod adds is judged by the same rule.
-        /// </summary>
-        private static bool HostileWithin(Player player, float radius)
-        {
-            Vector3 here = player.transform.position;
-            float sqrRadius = radius * radius;
-            foreach (Character character in Character.GetAllCharacters())
-            {
-                if (character == null || character == player || character.IsDead())
-                {
-                    continue;
-                }
-                if (!BaseAI.IsEnemy(player, character))
-                {
-                    continue;
-                }
-                if ((character.transform.position - here).sqrMagnitude <= sqrRadius)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return On && cost.Value && player != null && character == player && !Danger.Near(player);
         }
 
         /// <summary>
@@ -173,24 +89,6 @@ namespace OdinsMissingPatch
                 return freeAttacks;
             }
             return null;
-        }
-
-        /// <summary>
-        /// A monster whose target is a player reports it to that player every half second or so,
-        /// with whether it is alerted, and the report is an RPC to the player's own client - so
-        /// it arrives whoever owns the monster, which the monster's target itself does not (it is
-        /// never written to the ZDO). This is the enraged signal: alerted, and coming for you.
-        /// </summary>
-        [HarmonyPatch(typeof(Player), nameof(Player.RPC_OnTargeted))]
-        private static class NoticeEnragedEnemy
-        {
-            private static void Postfix(Player __instance, bool alerted)
-            {
-                if (alerted && __instance == Player.m_localPlayer)
-                {
-                    Instance.lastEnraged = Time.time;
-                }
-            }
         }
 
         // Sprinting, jumping, swimming and sneaking each work out their cost inside one Player

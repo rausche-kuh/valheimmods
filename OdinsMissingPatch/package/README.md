@@ -47,6 +47,7 @@ them change a lot:
 | **Chest buttons**     | Icon buttons for _fill your stacks_, _take all_, _place all_, _fill the chest's stacks_ and _sort the chest_.                            |
 | **Inventory buttons** | _Stack nearby_ and _sort_ next to your inventory. Equipped items and favourites stay where you put them.                                 |
 | **Station refill**    | Use a fire, smelter or similar with an empty backpack to take fuel from a chest. `Shift` + Use fills fuel, ore, food or bolts in one go. |
+| **Item magnet** ⚖️    | Hold `Y` to pull the items lying around you to your feet, from further the longer you hold. Only out of combat, and an item that was moved once is never pulled again, so it cleans up and never hauls. |
 
 ### Moving around
 
@@ -88,6 +89,8 @@ settings in game with a config manager, and they apply right away.
 - `General` → `ChestRange` sets how far chests count for nearby crafting, quick stack and station
   refill.
 - `General` → `KeepHotbar` keeps your hotbar out of quick stack, _place all_ and sorting.
+- `General` → `ThreatRadius`, `EnragedEnemies` and `BossFights` decide when you count as in
+  combat, for combat stamina and the item magnet.
 
 > 💡 A tweak that is **off at game start doesn't touch the game at all**. If it clashes with
 > another mod, switch it off and restart. If a game update breaks a tweak, only that tweak
@@ -136,6 +139,7 @@ enforced by a server. **⛔ Don't run both of a pair.**
 | Auto shield               | [ShieldMeBruh](https://thunderstore.io/c/valheim/p/Vapok/ShieldMeBruh/)                                                                                               |                                                                                     |
 | Pocket upgrades           | [EarlyHaldorPockets](https://valheim.hexium.gg/mods/chooweey/EarlyHaldorPockets)                                                                                      |                                                                                     |
 | Auto pins                 | [Discovery Pins](https://thunderstore.io/c/valheim/p/Searica/DiscoveryPins/)                                                                                          | Mass-pins on a key. This one shares pins with other players and through map tables. |
+| Item magnet               | [Magnetic Wishbone](https://thunderstore.io/c/valheim/p/Terrenteller/MagneticWishbone/)                                                                               | The Wishbone, upgraded, becomes a wider auto pickup.                                |
 | Shared map table          | [Better Cartography Table](https://thunderstore.io/c/valheim/p/nbusseneau/BetterCartographyTable/)                                                                    | Public and private pins, syncs when you use the table.                              |
 
 ## Recommendations

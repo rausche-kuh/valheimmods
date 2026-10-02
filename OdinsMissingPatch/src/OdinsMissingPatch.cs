@@ -42,6 +42,7 @@ namespace OdinsMissingPatch
             DeathPins.Instance,
             PlayerMarks.Instance,
             CollateralDamage.Instance,
+            ItemMagnet.Instance,
         };
 
         /// <summary>The mod's one log, for every tweak and helper.</summary>

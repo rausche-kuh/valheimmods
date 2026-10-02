@@ -3,7 +3,7 @@
 A collection of quality of life changes, each one its own configurable tweak. See the root
 `CLAUDE.md` for the shared build, the scripts and the environment.
 
-Twenty-three tweaks are in the source, registered in `Tweaks` in `src/OdinsMissingPatch.cs`;
+Twenty-four tweaks are in the source, registered in `Tweaks` in `src/OdinsMissingPatch.cs`;
 `docs/tweaks.md` says what each one does, its scope (client, world state, character) and which
 doc covers it. `ROADMAP.md` is what comes next and the known bugs.
 
@@ -23,7 +23,8 @@ before changing the area, and put back what a change taught.
 | any word a player reads | [`docs/translations.md`](docs/translations.md) — tokens, the CSV, what translates itself |
 | sorting or classifying items | [`docs/item-order.md`](docs/item-order.md) — `MaterialOrder`, the crafting tree |
 | stations, fires, demisters, repairing | [`docs/building-and-world.md`](docs/building-and-world.md) |
-| stamina costs and what counts as hostile | [`docs/stamina.md`](docs/stamina.md) |
+| stamina costs and what counts as hostile | [`docs/stamina.md`](docs/stamina.md) — and `Danger`, shared with the magnet |
+| pulling items, the guardian power pose | [`docs/item-magnet.md`](docs/item-magnet.md) — the moved mark, `GPower`, pickup |
 | who a creature's attack hits, boss spawns, loot | [`docs/creature-hits.md`](docs/creature-hits.md) |
 | Rested, comfort and healing | [`docs/comfort-and-healing.md`](docs/comfort-and-healing.md) |
 | portals and the death path | [`docs/death-and-portals.md`](docs/death-and-portals.md) |
@@ -40,7 +41,9 @@ before changing the area, and put back what a change taught.
 | --- | --- |
 | `src/OdinsMissingPatch.cs` | Entry point: binds every tweak's config, then patches; the `Tweaks` list. |
 | `src/Tweak.cs` | The base class: section, `Enabled`, `On`, `BindMultiplier`, `BindList`. |
-| `src/SharedSettings.cs` | Settings several tweaks read (`General`): `ChestRange`, `KeepHotbar`. |
+| `src/SharedSettings.cs` | Settings several tweaks read (`General`): `ChestRange`, `KeepHotbar`, danger. |
+| `src/Danger.cs` | Whether the local player is in danger; CombatStamina and ItemMagnet. |
+| `src/MovedMarker.cs` | The "moved once" mark on drops that stops the magnet hauling. |
 | `src/Palette.cs` | The colours the mod draws with. |
 | `src/Patcher.cs` | Patches the tweaks that are on, class by class; `Serves`, `Always`, `LoadHook`. |
 | `src/Tweaks/<Name>.cs` | One tweak, its `[HarmonyPatch]` classes nested inside. |

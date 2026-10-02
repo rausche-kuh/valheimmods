@@ -8,9 +8,10 @@ for players; this is the developer's index — the deep notes live in the docs l
 (writes a ZDO — needs the mod on whichever client owns the object), *character* (writes the
 player's own save).
 
-Two settings serve several tweaks and live in `SharedSettings` (the `General` section): `ChestRange`
-(20m), how far a chest counts for every chest tweak, and `KeepHotbar` (on), which keeps quick
-stack, Place all, Fill the chest and Sort off the hotbar row.
+Settings that serve several tweaks live in `SharedSettings` (the `General` section): `ChestRange`,
+how far a chest counts for every chest tweak, `KeepHotbar`, which keeps quick stack, Place all,
+Fill the chest and Sort off the hotbar row, and `ThreatRadius`, `EnragedEnemies` and
+`BossFights`, what counts as danger for Combat stamina and the item magnet.
 
 | Tweak | Scope | Deep notes |
 | --- | --- | --- |
@@ -37,6 +38,7 @@ stack, Place all, Fill the chest and Sort off the hotbar row.
 | DeathPins | client | [map-pins](map-pins.md) |
 | PlayerMarks | client | [player-marks](player-marks.md) |
 | CollateralDamage | world state (victim ZDOs); both the attacker's and the victim's owner need the mod | [creature-hits](creature-hits.md) |
+| ItemMagnet | world state (drop ZDOs: position and the moved mark, owned first) | [item-magnet](item-magnet.md) |
 
 ## Shipped (0.1.0)
 
@@ -117,6 +119,13 @@ stack, Place all, Fill the chest and Sort off the hotbar row.
   icon; picking one calls `Player.SetGuardianPower`, the same call the sacrificial stone makes.
 
 ## Unreleased
+
+- **Item magnet** — hold `Hotkey` (Y) to channel the guardian power pose and pull every drop
+  within a growing ring (`BaseRadius`, `RadiusPerSecond`, `MaxRadius`) to the player's feet,
+  where vanilla auto pickup takes what fits, and ends by itself once nothing pullable is left
+  within `MaxRadius`. A drop moved once (pulled, or dropped by a player)
+  carries `omp_moved` and is never pulled again; it only starts and only lasts out of danger
+  (`Danger`, the `General` threat settings shared with Combat stamina). No cooldown, no cost.
 
 - **Equip while running** — the equip queue survives a sprint. `Player.CheckRun` wipes it on
   every sprinting tick in vanilla, so a hotbar press for anything with an equip duration only

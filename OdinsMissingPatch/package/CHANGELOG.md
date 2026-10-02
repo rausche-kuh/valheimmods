@@ -11,6 +11,14 @@
   - Nearby fuel and add all are one tweak, **Station refill** (`SingleFromChests`, `AddAll`).
   - The four chest ranges are one, `General.ChestRange`, and the three hotbar switches of quick
     stack, chest buttons and inventory buttons are one, `General.KeepHotbar`.
+  - Combat stamina's `ThreatRadius`, `EnragedEnemies` and `BossFights` moved to `General`: they
+    now decide when you are in combat for the item magnet too.
+- Added: item magnet. Hold `Y` and your character rises into the Forsaken power pose, wreathed
+  in its fire, while every item lying around flies to your feet — from 10m after a second, and
+  further the longer you hold. It stops by itself once the last item in reach has landed. What
+  fits in your backpack is picked up, the rest piles up at your feet. It only works while nothing hostile is near or after you, and an item that was moved once
+  (pulled, or dropped by a player) is never pulled again, so it tidies up after a fight or a felled
+  forest but never carries a load for you. No cooldown, no stamina.
 - The "Nearby use: off" line on a chest's hover text is translated like the rest.
 - Quick stack: hold Shift while pressing the quick stack key to top up instead. Every stack of
   food, meads and ammo you carry is filled up to its cap from the chests around you, nearest

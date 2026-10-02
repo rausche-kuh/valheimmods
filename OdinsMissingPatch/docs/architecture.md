@@ -15,7 +15,9 @@ hold the conventions and game facts behind each piece.
 | `src/Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut`, read through `ZInput`. |
 | `src/PanelButtons.cs` | The inventory screen's buttons and their layout: icon and text buttons cut from the chest panel's Take all button, registered by their owners, placed once per frame in a column beside each panel or in the vanilla spots, and the switch that hides the game's Take all and Stack all. |
 | `src/Stash.cs` | Putting the backpack away: what may leave it, which chest takes which kind, the move into a chest; and `TopUp`, filling existing stacks without opening new ones. Shared by QuickStack and ChestButtons. |
-| `src/SharedSettings.cs` | The settings several tweaks read, in the `General` section: `ChestRange`, `KeepHotbar`. |
+| `src/SharedSettings.cs` | The settings several tweaks read, in the `General` section: `ChestRange`, `KeepHotbar`, and the danger settings `ThreatRadius`, `EnragedEnemies`, `BossFights`. |
+| `src/Danger.cs` | Whether the local player is in danger - a hostile near, an enemy coming for them, a boss bar - for CombatStamina and ItemMagnet; the enraged-report patch. |
+| `src/MovedMarker.cs` | The item magnet's anti-hauling mark on a drop's ZDO: set on pulled and player-dropped items, carried over when the game merges stacks. |
 | `src/Palette.cs` | The colours the mod draws with, one per meaning. |
 | `src/PinSweep.cs` | The two-sweep "is it still there?" check for pins near the player, shared by DeathPins and AutoPins' mined-out check. |
 | `src/InventorySorter.cs` | Merge-and-sort of an `Inventory` in place, from a given row down, around items a caller keeps. |
@@ -25,6 +27,7 @@ hold the conventions and game facts behind each piece.
 | `src/Translations.cs` | Hands `assets/translations.csv` to the game's localization on every language setup. |
 | `src/Dev/MapCommands.cs` | Debug only: `omp_locations [filter]`, `omp_pins`, `omp_pins_forget`, `omp_pins_clear` — see [`map-pins.md`](map-pins.md). |
 | `src/Dev/CollateralTest.cs` | Debug only: `omp_cd <scene>` spawns a troll or boss with peers, `omp_cd_info`, `omp_cd_clear`; every collateral hit and loot decision shown top left. |
+| `src/Dev/MagnetCommands.cs` | Debug only: `omp_magnet_scatter`, `omp_magnet_probe` (loaded drops per ring, for choosing `MaxRadius`), `omp_magnet_unmark` — see [`item-magnet.md`](item-magnet.md). |
 | `src/Dev/MarkWards.cs` | Debug only: wards stand in for other players so `PlayerMarks` can be tried alone; `omp_marks_wards` switches it. |
 | `assets/icons/` | The button icons, 64px white-on-transparent PNGs, and the coloured `map_*` pin icons PinLooks draws, shipped beside the DLL. Gale flattens the folder on install, so `PanelButtons.Icon` looks in `icons/` and then beside the DLL. |
 | `assets/translations.csv` | Every word the mod shows, one row per `$omp_` token, one column per language |

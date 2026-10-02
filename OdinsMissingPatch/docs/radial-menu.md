@@ -1,6 +1,7 @@
 # The radial menu and guardian powers
 
-PowerPicker.
+PowerPicker. The guardian power pose and its `GPower` animation event are in
+[item-magnet](item-magnet.md).
 
 - The radial menu (`Valheim.UI`, `Hud.m_radialMenu`, opened on `OpenRadial` = G) is built from
   configs rather than from a prefab, which is what makes it extensible without an asset. An

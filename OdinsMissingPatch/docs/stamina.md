@@ -1,6 +1,7 @@
 # Stamina and hostility
 
-CombatStamina.
+CombatStamina, and `Danger` (`src/Danger.cs`): what counts as combat, shared with the item magnet
+([item-magnet](item-magnet.md)); its three settings are in `General`.
 
 - The player's stamina spends, and where each is decided: sprint in `Player.CheckRun` off
   `m_runStaminaDrain`, jump in `Player.OnJump` off `m_jumpStaminaUsage`, swim in
@@ -27,10 +28,10 @@ CombatStamina.
   target when that is a player, which throttles to one `OnTargeted` RPC per ~0.5s per player (the
   timers advance on remote copies too) and lands in `Player.RPC_OnTargeted` on the player's own
   client. That is what `IsTargeted()` / `IsSensed()` (the stealth HUD eye) and the combat music
-  timer are fed from, and what `CombatStamina` reads its enraged signal from: alerted, and coming
+  timer are fed from, and what `Danger` reads its enraged signal from: alerted, and coming
   for you, whoever owns the monster. `HuntPlayer()` monsters (bosses, event creatures) are alerted
   permanently and target the closest player within 200m, so they report too.
 - The boss health bar: `EnemyHud.TestShow` shows a `Character.IsBoss()` hud while its `BaseAI` is
   alerted and it is within `m_maxShowDistanceBoss` (100m) of the local player;
-  `EnemyHud.instance.ShowingBossHud()` (public) is whether any boss hud is up. `CombatStamina`'s
-  `BossFights` reads that.
+  `EnemyHud.instance.ShowingBossHud()` (public) is whether any boss hud is up. `Danger` reads
+  that under `General.BossFights`.
