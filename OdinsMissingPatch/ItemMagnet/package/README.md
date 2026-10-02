@@ -9,6 +9,8 @@ It cleans up, it never hauls: it only works while nothing hostile is near or aft
 item that was moved once (pulled, or dropped by a player) is never pulled again. So it tidies up
 after a fight or a felled forest, but never carries a load for you. No cooldown, no stamina.
 
+![Item Magnet: items lying around flying to your feet](https://raw.githubusercontent.com/rausche-kuh/valheimmods/main/images/item_magnet.webp)
+
 Part of [Odin's Missing Patch](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsMissingPatch/),
 the pack. It works just as well on its own.
 

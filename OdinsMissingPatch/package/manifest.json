@@ -1,6 +1,6 @@
 {
     "name": "OdinsMissingPatch",
-    "version_number": "0.3.2",
+    "version_number": "0.4.0",
     "website_url": "https://github.com/rausche-kuh/valheimmods",
     "description": "Modpack: the quality of life changes Valheim should have shipped with. Station ranges, nearby chests, quick stack, auto map pins, item magnet, player markers. Client side",
     "dependencies": [

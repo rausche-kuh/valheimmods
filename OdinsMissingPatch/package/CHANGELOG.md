@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - **Odin's Missing Patch is now a pack.** Its tweaks live in five mods, each with its own page,
   that you can also install on their own. Updating the pack installs all five, so you keep every
@@ -29,9 +29,7 @@
   of their own, and every map icon is drawn at the same size.
 - A tweak switched off when the game starts no longer touches the game at all, and if a game
   update breaks a tweak, only that tweak switches off.
-- Collateral damage, which was never released here, went to
-  [a mod of its own](https://thunderstore.io/c/valheim/p/rauschekuh/CollateralDamage/) instead: it
-  changes fights, so it is not in this pack.
+- Collateral damage - [a mod of its own](https://thunderstore.io/c/valheim/p/rauschekuh/CollateralDamage/) :
 
 ## 0.3.2
 

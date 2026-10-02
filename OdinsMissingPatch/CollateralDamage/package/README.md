@@ -6,6 +6,8 @@ Trolls and bosses smash whatever creature stands in the way of their attacks: a 
 ground slam hit the greydwarfs at its feet, Eikthyr's lightning hits the dwarfs in his arena,
 Yagluth's meteors hit fulings and lox, and so on for every boss but the Queen.
 
+![Collateral Damage: a troll's swing hitting the creatures in its way](https://raw.githubusercontent.com/rausche-kuh/valheimmods/main/images/collateral_damage.webp)
+
 > ⚠️ **Alpha.** Built heavily with AI. Co-op testing can lag a release by a week. The
 > [source](https://github.com/rausche-kuh/valheimmods) is free to copy under the MIT license; a
 > credit is appreciated.
