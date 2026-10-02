@@ -6,18 +6,46 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 
 ## Up next
 
-- **Signposts** (built 2026-10-01, `docs/signposts.md`): run `paths signs` / `paths signs place`
-  in game - its "To check in game" list. Then: a post at the sacrificial stones and at a base,
-  spur forks (a single board naming the spur's place, behind a setting), the words as
-  translations.
-- **Road ends** (seen 2026-10-01): roads that go round an Eikthyr altar without reaching it, or
-  stop short of their place. Find out first whether it is the pinned instance or another one
-  (next entry) and whether the new structure distance stop sends the road round it.
+In the user's order (2026-10-02):
+
+1. **Road ends: lanes** (built 2026-10-02, `docs/laying.md`). Seen in game the same day: "in
+   general all connections look fine now" - roads and spurs come in straight along a lane,
+   leave the sacrificial stones between them, and Yagluth's road comes through a gap between
+   his rock fingers (cut at the walking band; seen working, as the other places of interest).
+   Left open:
+   - **Turns into a lane:** some roads reach the lane's outer end from the side and turn 90°
+     into it; a real road would come in "straight from the road". Ideas: soften the corner
+     into an arc outside the footprint, or search to a fan of goals in front of the lane.
+   - The infected mines: under "Mistlands navigation".
+   - **The Elder's arena** has terrain sticking out of its platforms; not our levelling (the
+     road keeps out of its smoothed 25 m) - check against a `paths undo`.
+   - Haldor's road made a strange turn instead of going straight in (fine for now).
+2. **Docks:** no chest on a dock (done 2026-10-02, `ChestChance` is the buildings' only); more
+   variety - mirrored docks, a varying length, more blueprints (see "Harbour blueprints").
+3. **Bridges and bridge ruins** over rivers (`docs/placement.md` §4; limits under "From
+   Procedural Roads' PRs").
+4. **Forks on slopes:** where a main road sets out from another, the two levellings fight - a
+   step or ridge where their shoulders meet. Hold the new road at the old one's height for its
+   first metres and let it re-level the old shoulder, as a door path does (`Trail.Ramp`,
+   `OverOwn`).
+5. **Signposts in the fork** (`paths signs` works, 2026-10-02): the post stands before a
+   narrow fork, its boards pointing nearly the same way. Stand it in the wedge past the split
+   and turn each board along its road further on, not its first metres.
+6. **Serpentines** (the user, 2026-10-02: "these still need more work"): the switchbacks on
+   steep ground - the turn cost that spreads them (`docs/search.md`), the hairpin landings and
+   the legs' levelling (`docs/laying.md`, Hairpins). Look at them in game first and note
+   what is wrong.
+
+Polish, after those (the user, 2026-10-02):
+
 - **Altars and places passed by** (the user, 2026-10-01): a road passing near another instance
   of a boss altar (or a pinned group's other instances) gives it a spur, as a point of interest
   does - today only the pinned instance is connected.
 - **Close but unconnected main roads** (the user, 2026-10-01; with "Webbing" below): two main
   roads that pass close without meeting get a link between them, main roads only.
+- **Signposts, the rest** (`docs/signposts.md`): a post at the sacrificial stones and at a base,
+  spur forks (a single board naming the spur's place, behind a setting), the words as
+  translations.
 - **From Procedural Roads' PRs** (read 2026-10-01, `docs/prior-art.md`), in order:
   - **Batter for deep cuts:** the shoulder is a fixed 1.5 m while a main road cuts up to 4 m;
     widen it with the cut depth past ~2 m, cuts only.
@@ -70,6 +98,23 @@ The design behind each entry is in `docs/`: `architecture.md` (every source file
 - always add mini paths to close by structures (houses)
 - spawn houses at road forks
 
+## Mistlands navigation
+
+The user, 2026-10-02: "currently barely usable". Today a road there is a dirt track with no
+levelling and a road post with its demister every 48 m (`docs/biomes.md`, `src/Lamps.cs`,
+`src/Entries.cs`); the height profile is too broken to build a road on, so fighting the
+terrain further is not the way. Lean on what a traveller who can barely see would build:
+
+- **Lamps that guide:** each lamp within sight of the last - closer on bends and climbs, not
+  a fixed spacing -, a board on each post pointing the way on (a signpost's boards at a fork),
+  and something to follow when you can barely see (a low line of stones or a chain between
+  the posts, from the game's own pieces).
+- **The infected mines** are ringed with stones, and their way in is a small hill of about
+  70°: the stairs are found (`Approaches.SlopeYaw`), the road to them is not right yet.
+- Questions to settle before building: what the boards say (names, or only the way), how far
+  a demister clears and so how far apart lamps can stand to be seen, and whether the Ashlands
+  get the same.
+
 ## To check in game
 
 Seen working 2026-10-01: the traders settled and revealed at their road's end, the harbour
@@ -94,5 +139,4 @@ stones revealing each other, harbours as a foundation, no stutter in a growth.
 
 # Bugs
 
-- Roads that go round an Eikthyr altar without reaching it (under "Up next", road ends).
 - vegetation / stones / sticks can float or sink when comming near

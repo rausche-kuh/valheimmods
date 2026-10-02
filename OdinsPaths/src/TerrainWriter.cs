@@ -23,6 +23,8 @@ namespace OdinsPaths
         internal const float EdgeWobble = 0.15f;
         /// <summary>Beyond the path's edge, the levelling blends back into the ground over this.</summary>
         internal const float Shoulder = 1.5f;
+        /// <summary>A fan's paint fades in over this share of its half width: no edge to it.</summary>
+        private const float FanSoftness = 0.6f;
         /// <summary>Segments further apart along the trail than this (20 m) are different legs of it.</summary>
         private const int OtherLeg = Trail.OtherLeg;
         /// <summary>At most this many threads build a road's zones (<see cref="EachZone"/>), half the cores at most.</summary>
@@ -76,7 +78,7 @@ namespace OdinsPaths
         public static IEnumerator Write(List<Trail> trails, List<Circle> locations, Structures structures, Result result)
         {
             float scale = ZoneSystem.instance.m_zonePrefab.GetComponentInChildren<Heightmap>().m_scale;
-            Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>> zones = ZonesNear(trails, trail => trail.Kind.Reach + scale);
+            Dictionary<Vector2s, List<KeyValuePair<Trail, List<int>>>> zones = ZonesNear(trails, trail => trail.Reach + scale);
             List<Vector2> temples = Planner.Temples();
             yield return EachZone(zones.Keys, (zone, data) =>
             {
@@ -333,7 +335,7 @@ namespace OdinsPaths
                 return;
             }
             // A road's search list holds thousands of locations; a zone overlaps a few at most.
-            locations = Overlapping(locations, new Vector2(center.x, center.z), width * scale * 0.5f);
+            locations = Overlapping(locations, new Vector2(center.x, center.z), width * scale * 0.5f + Shoulder);
             byte[] old = compiler != null ? compiler.GetByteArray(ZDOVars.s_TCData) : null;
             TerrainData terrain = old != null ? TerrainData.Decode(old, pitch) : new TerrainData(pitch);
             if (terrain == null)
@@ -345,8 +347,8 @@ namespace OdinsPaths
 
             float waterLevel = ZoneSystem.instance.m_waterLevel;
             RoadKind kind = trail.Kind;
-            float maxHalfWidth = kind.MaxHalfWidth;
-            bool level = kind.Levelling;
+            float maxHalfWidth = trail.MaxHalfWidth;
+            bool level = kind.Levelling && !trail.PaintOnly;
             float origin = -width * scale * 0.5f;
             // Heights sit on the vertices. The paint mask's texels are half a metre off them, as
             // TerrainComp.PaintCleared's half offset has it.
@@ -378,7 +380,14 @@ namespace OdinsPaths
                     // Levelled before by this lay (the road under a door path): levelled again, blended from that.
                     bool again = terrain.ModifiedHeight[index] && trail.OverOwn && result.Ours.Contains(key);
                     if (distance >= halfWidth + Shoulder || (terrain.ModifiedHeight[index] && !again)
-                        || (!causeway && baseHeight < waterLevel + Trail.ShoreMargin + 0.2f) || InAny(locations, vertex))
+                        || (!causeway && baseHeight < waterLevel + Trail.ShoreMargin + 0.2f))
+                    {
+                        continue;
+                    }
+                    // Out of a location's circle, fading in over a shoulder: a road levelled right up
+                    // to it left a step where its levelling stopped (the Eikthyr altar, 2026-10-02).
+                    float location = Clearance(locations, vertex);
+                    if (location < 0f)
                     {
                         continue;
                     }
@@ -395,6 +404,7 @@ namespace OdinsPaths
                     float blend = distance <= halfWidth ? 1f : Falloff(kind, (distance - halfWidth) / Shoulder);
                     blend *= Mathf.SmoothStep(0f, 1f, (building - Structures.PieceReach) / Shoulder);
                     blend *= Mathf.SmoothStep(0f, 1f, (temple - TempleKeep) / Shoulder);
+                    blend *= Mathf.SmoothStep(0f, 1f, location / Shoulder);
                     // A causeway fills up from as deep as the swamp is let go; elsewhere the cut is the
                     // trail's there: the kind's, deeper at a hairpin's landing and in the Mistlands.
                     float maxCut = trail.MaxCutAt(vertexSegment[index]);
@@ -433,7 +443,8 @@ namespace OdinsPaths
                         && structures.Distance(texel, Structures.PieceReach) >= Structures.PieceReach
                         && Paint(terrain, data.m_baseMask[index], index, texel,
                             Trail.Handover(Heightmap.m_paintMaskDirt, trail.PaintAt(texelSegment[index]), dirt > stone ? stone / dirt : 1f),
-                            Mathf.Clamp01((edge - paintDistance) / kind.EdgeSoftness) * steep))
+                            Mathf.Clamp01((edge - paintDistance) / (trail.PaintOnly ? edge * FanSoftness : kind.EdgeSoftness)) * steep
+                                * trail.StrengthAt(texelSegment[index])))
                     {
                         painted++;
                     }
@@ -693,6 +704,17 @@ namespace OdinsPaths
                 }
             }
             return distance;
+        }
+
+        /// <summary>How far p is outside the nearest circle's edge; negative inside one.</summary>
+        private static float Clearance(List<Circle> circles, Vector2 p)
+        {
+            float nearest = float.MaxValue;
+            foreach (Circle circle in circles)
+            {
+                nearest = Mathf.Min(nearest, Vector2.Distance(circle.Center, p) - circle.Radius);
+            }
+            return nearest;
         }
 
         private static bool InAny(List<Circle> circles, Vector2 p)

@@ -182,7 +182,8 @@ converts it.
 | `clutter`, `keep` | never | |
 
 - **Spots** - the signs are the only thing ever replaced:
-  - `chest`: the biome's treasure chest, at `ChestChance`; else on a standing deco spot, else a
+  - `chest`: the biome's treasure chest, at `ChestChance` - a building's only, never a dock's
+    (the user, 2026-10-02); else on a standing deco spot, else a
     free deck.
   - `barrel`: shares the `chest` roll; the loot goes to one chest or barrel spot at random, and
     on a barrel spot it is a barrel with the chest's loot written into its ZDO (`Builder.Fill`).

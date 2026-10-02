@@ -14,7 +14,7 @@ namespace OdinsPaths
     public partial class OdinsPathsPlugin
     {
         private const string Usage = "paths facts | bench [cells] | threads [threads] [samples] | where <location> | costs [<name> <value> ...] | search <target> [pass ...] | "
-            + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | ports [radius] | signs [place] | "
+            + "lay <target> [pass ...] [main|spur] [solo] | spurs | undo | plan | grow [count|all] | preview [all] [full] [spacing] | show [spacing] | relink | auto [on|off] | ports [radius] | signs [place] | lane | "
             + "network | forget | clearpins | reset [confirm]   (target: <x> <z> or a location name; "
             + "pass: a cell in metres, or cell:corridor - one alone is the coarse cell before the settings' fine pass, 0 = none; "
             + "main = a paved main road, the default, spur = a dirt spur; solo = from the player alone, not the network)";
@@ -88,6 +88,7 @@ namespace OdinsPaths
                         case "auto": Say(args.Context, Auto(args)); break;
                         case "ports": Ports(args); break;
                         case "signs": Signs(args); break;
+                        case "lane": Say(args.Context, LaneHere()); break;
                         case "threads":
                             ThreadCheck(args.Context,
                                 args.Length > 2 && int.TryParse(args[2], out int threads) ? Mathf.Clamp(threads, 2, 64) : Mathf.Clamp(System.Environment.ProcessorCount, 2, 64),
@@ -218,6 +219,74 @@ namespace OdinsPaths
         }
 
         /// <summary>Every instance of a location, nearest first, so a far one can be searched by its coordinates.</summary>
+        /// <summary>
+        /// "paths lane": the nearest location's measured layout, its turn and the lane a road from
+        /// where the player stands would take into it, pinned on the map (Approaches).
+        /// </summary>
+        private static string LaneHere()
+        {
+            if (ZoneSystem.instance == null || Player.m_localPlayer == null)
+            {
+                return "Needs a world and a local player.";
+            }
+            Vector3 p = Player.m_localPlayer.transform.position;
+            Vector2 from = new Vector2(p.x, p.z);
+            ZoneSystem.LocationInstance nearest = default;
+            float best = 150f * 150f;
+            foreach (ZoneSystem.LocationInstance instance in ZoneSystem.instance.m_locationInstances.Values)
+            {
+                float d = (new Vector2(instance.m_position.x, instance.m_position.z) - from).sqrMagnitude;
+                if (instance.m_location != null && d < best)
+                {
+                    best = d;
+                    nearest = instance;
+                }
+            }
+            if (nearest.m_location == null)
+            {
+                return "No location within 150 m.";
+            }
+            ClearPins();
+            Vector2 centre = new Vector2(nearest.m_position.x, nearest.m_position.z);
+            Footprints.Layout layout = Footprints.LayoutOf(nearest.m_location);
+            StringBuilder sb = new StringBuilder(nearest.m_location.m_prefabName).Append(" at ").Append(centre.ToString("F0"))
+                .Append(nearest.m_placed ? ", generated" : ", not generated").Append(", footprint ").Append(Footprints.Radius(nearest.m_location).ToString("F1")).Append(" m");
+            if (!Approaches.Turn(nearest, out float yaw))
+            {
+                return sb.Append("; turn unknown, no lane.").ToString();
+            }
+            sb.Append(", turned ").Append(yaw.ToString("F1")).Append("°");
+            if (layout.HasDoor)
+            {
+                Vector2 door = Approaches.World(centre, yaw, layout.Door);
+                Pin(door, Minimap.PinType.Icon3, "door", Color.yellow, null);
+                sb.Append("; door at ").Append(door.ToString("F1")).Append(", its way in ").Append(layout.Corridor.ToString("F1")).Append(" m");
+            }
+            else
+            {
+                sb.Append("; ").Append(layout.Solids.Count).Append(" solid things:");
+                foreach (Vector3 solid in layout.Solids)
+                {
+                    Vector2 at = Approaches.World(centre, yaw, new Vector2(solid.x, solid.y));
+                    Pin(at, Minimap.PinType.Icon2, "r " + solid.z.ToString("F1"), Color.red, null);
+                    sb.Append(" (").Append(at.x.ToString("F0")).Append(", ").Append(at.y.ToString("F0")).Append(") r ").Append(solid.z.ToString("F1"));
+                }
+            }
+            if (!Approaches.LaneTo(centre, from, out Approaches.Lane lane))
+            {
+                return sb.Append(". No lane: a fan toward the centre.").ToString();
+            }
+            Pin(lane.Outer, Minimap.PinType.Icon0, "lane out", Color.cyan, null);
+            Pin(lane.Inner, Minimap.PinType.Icon0, "lane in", Color.green, null);
+            sb.Append(". Lane from here: ").Append(lane.Outer.ToString("F1")).Append(" to ").Append(lane.Inner.ToString("F1"))
+                .Append(", the last ").Append(lane.Dirt.ToString("F1")).Append(" m dirt; the road levels up to its own ground:");
+            foreach (Circle flat in lane.Flats)
+            {
+                sb.Append(" (").Append(flat.Center.x.ToString("F0")).Append(", ").Append(flat.Center.y.ToString("F0")).Append(") r ").Append(flat.Radius.ToString("F1"));
+            }
+            return sb.Append(lane.Flats.Count == 0 ? " none: all the way in." : ".").ToString();
+        }
+
         private static string Where(string name)
         {
             if (name == null)

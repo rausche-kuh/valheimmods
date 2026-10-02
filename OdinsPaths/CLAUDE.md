@@ -45,7 +45,8 @@ released: `VERSION` stays 0.1.0, `package/icon.png` is a placeholder.
 | `src/Grower.cs` | Triggers (start-up, sleep, vegvisir) and the shared `Busy` flag. |
 | `src/Structures.cs` | Built pieces and obstacles in the search area, gathered off-thread. |
 | `src/Lamps.cs` | Demister road posts in the Mistlands. |
-| `src/Footprints.cs` | How far a location's buildings reach, measured once, cached per game version. |
+| `src/Footprints.cs` | How far a location's buildings reach and its layout (door, corridor, solids), measured once, cached. |
+| `src/Approaches.cs` | A location's turn known before it generates (seeded), and the straight lane into it. |
 | `src/Landings.cs` | Landings at sea crossings; `Spawn` marks what the mod places. |
 | `src/Ports.cs` | The game's harbours (Mistlands piers), used before a dock of ours. |
 | `src/Harbours.cs` | Harbour stones: the mod's vegvisir prefab, linked across the sea. |

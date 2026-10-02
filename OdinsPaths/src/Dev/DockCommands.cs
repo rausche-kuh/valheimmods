@@ -8,7 +8,7 @@ namespace OdinsPaths
     // Dev only: src/Dev/ is compiled into Debug builds alone, so this never ships.
     public partial class OdinsPathsPlugin
     {
-        private const string DockUsage = "docks list | reload | build [blueprint] [condition 0-1] [chest] [enemies] [edit] | "
+        private const string DockUsage = "docks list | reload | build [blueprint] [condition 0-1] [enemies] [edit] | "
             + "house [blueprint] [condition 0-1] [chest] [enemies] [edit] | undo | capture <name> [dock|building] [radius] | "
             + "export [name] | import <PlanBuild file> [as <name>] [dock|building]   "
             + "(build: a dock from where you stand out along where you look, you standing where the road ends; house: a building "
@@ -29,7 +29,7 @@ namespace OdinsPaths
         /// "docks ..." - to make and look at harbour blueprints without laying roads to a shore.
         /// "build" raises a dock where the player stands, out the way the player looks (a blueprint
         /// by name, else one of the biome's that fits; a condition, else a random one; "chest" and
-        /// "enemies" make both certain, else none), "house" a building with its front at the
+        /// "enemies" make both certain, else none - a dock never holds a chest), "house" a building with its front at the
         /// player's feet; "edit" raises either as new, of pieces the player may take down and add
         /// to with the hammer, with a sign for each spot. "capture" writes the pieces built around
         /// the player (in the frame of the last edit build nearby, else of the player's feet and
@@ -134,7 +134,6 @@ namespace OdinsPaths
                     Seed = Random.Range(int.MinValue, int.MaxValue),
                     Blueprint = name,
                     Condition = condition,
-                    ChestChance = chest ? 1f : 0f,
                     EnemyChance = enemies ? 1f : 0f,
                     Force = true,
                     Edit = edit,

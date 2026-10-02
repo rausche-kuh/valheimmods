@@ -88,6 +88,55 @@ exactly as `PaintCleared` does, and alpha stays the base mask's. Then write the 
   road's or a spur's goal still sits at the exterior radius. The log names each location that
   reaches past its radius, and a measuring that took over 20 ms. **Verify** the sizes and the
   time.
+- **Lanes into a location** (the user, 2026-10-02, after the fan: a road through one of the
+  Eikthyr altar's stones, one stopping short of a burial chamber's corridor, one coming at a
+  chamber from behind; built the same day, `src/Approaches.cs`, not run in game). A real road
+  arrives straight and through the way in, so each location gets a **lane**:
+  - **Its layout** is read with its footprint (`Footprints.Layout`): the one `Teleport` at
+    ground level is the door, its forward the way **out** (a player leaving lands along it,
+    `Teleport.GetTeleportPoint`); the far end of every wall, slab, ramp and stair in a strip
+    before the door is its **corridor**; without a door, the solid colliders reaching into the
+    walking band (layers Default, piece, static_solid, Default_small, blocker; not a floor slab
+    or a roof; a wide low Default mesh is the rock an altar stands on) are discs a road passes
+    between. Read from the bundles with UnityPy (2026-10-02) and replayed against the rules:
+    Eikthyr's four gaps come out between its stones, the west one shut by the rune tablet and the
+    statue; the crypts', troll cave's, sunken crypt's and Dvergr gate's corridors end where their
+    stones, ramp or stair end. A readable mesh collider is cut at the walking band (its
+    triangles' crossings), not taken as its box: Yagluth's leaning rock fingers are boxes 30 to
+    44 m wide but some 12 m thick where a player walks, and as boxes they shut every gap (his
+    road went through them to a fan that never reached the arena, 2026-10-02); cut, five gaps
+    open between them.
+  - **Its turn** is known before the zone generates: the server seeds the game's random turn
+    from the world and the zone (`Approaches.SeedTurn`, the user's choice) - it is the zone's
+    first draw, so nothing else changes; a generated one reads its `LocationProxy`; a slope-turned
+    one is reckoned from the slope.
+  - **The lane:** out of a door along its corridor, the road meeting its far end; else through
+    the gap nearest the road's side, along the gap's middle, stopping before the altar. The
+    search goes to its outer end, outside the footprint and far enough out to come in straight;
+    the target's circle is no longer the goal's, so the search goes around the location, not
+    through it. The road runs on straight to the inner end, dirt inside the footprint or the
+    ring (the user: dirt inside the ring). Spurs end along lanes too (a burial chamber's spur
+    stopped short of its corridor, another came at it from behind - both spurs, 2026-10-02).
+  - **Levelling into it:** the writer's levelling fades out over the shoulder before every
+    location circle (it stopped dead at the Eikthyr altar's footprint, a step between the stone
+    road and the dirt, 2026-10-02). For a lane's own location the circle gives way to the ground
+    the location levels and smooths itself - its `TerrainModifier`s' level and smooth radii,
+    read with its layout (`Footprints.Layout.Flats`): `TerrainComp` adds its deltas on top of
+    the location's levelling, counted from the ground before it, so levelling there would be
+    off by what the location changed.
+  - **Out of the sacrificial stones** the same way round: a road from the start temple sets out
+    at the inner end of its lane toward the nearest goal, dirt between the stones, and no road
+    branches off within the temple's footprint (the first road ran through a stone,
+    2026-10-02). The bundles give the temple three gaps: between the Elder's and Bonemass'
+    stones, between the Queen's and Yagluth's, and the wide open west side.
+  - **No lane** (no turn known, no gap): the **fan** - the road's stone turns to dirt over its
+    last metres and a wide, fading dirt fan (`Trail.Fan`, paint only) goes on toward the centre.
+    Our paint wins inside a location: `Heightmap.ApplyModifiers` applies its `TerrainModifier`s
+    first, then the `TerrainComp`.
+  - `paths lane` (Debug) shows the nearest location's layout, turn and the lane from where the
+    player stands, pinned. **Verify** in game: Eikthyr through a gap, both burial chambers met
+    at their corridor and from the front, a turn seeded before generation matching the one
+    generated, the mines' slope turn.
 - **The sacrificial stones** (third lay, 2026-09-25: "your adjustments prove to be bumpy"): no
   levelling within 10 m of the start temple's centre, fading in over the 1.5 m shoulder past
   that (`TerrainWriter.TempleKeep`) - the temple levels its own ground. The paint still runs

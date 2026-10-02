@@ -48,6 +48,13 @@ namespace OdinsPaths
         /// piece costs forty times - reason enough, before, for a spur to give up metres from the goal.
         /// </summary>
         private const float SpurApproach = 12f;
+        /// <summary>How far a main road's dirt fan reaches on past its end, at most, and how wide it opens (half).</summary>
+        private const float FanLength = 24f;
+        private const float FanHalfWidth = 6f;
+        /// <summary>Over the road's last metres before a fan, its stone turns to dirt.</summary>
+        private const float FanTail = 8f;
+        /// <summary>A road ending closer than this to its place's door gets no fan.</summary>
+        private const float FanShortest = 4f;
 
         /// <summary>One search pass: its cell, and the width of the corridor around the pass before it (none for the first).</summary>
         internal struct Pass
@@ -140,6 +147,10 @@ namespace OdinsPaths
             /// <summary>The last pass run - the one the trail comes from when it succeeded.</summary>
             public PathSearch Search => Passes.Count > 0 ? Passes[Passes.Count - 1] : null;
             public Trail Trail;
+            /// <summary>The straight way in the road ends along (<see cref="Approaches.LaneTo"/>); null if none was known.</summary>
+            public Approaches.Lane? Lane;
+            /// <summary>Without a lane, the dirt on from where the road stops toward its place's centre (<see cref="Trail.Fan"/>); null if none.</summary>
+            public Trail Fan;
             /// <summary>The trail as a road of the network, costs from the hub and all; the caller adds it.</summary>
             public Network.Road Road;
             /// <summary>The spurs laid off it, when the planner lays them (<see cref="LaySpurs"/>).</summary>
@@ -177,15 +188,49 @@ namespace OdinsPaths
             outcome.Candidates = goals.Count;
             goals = Candidates(starts, goals);
             outcome.Searched = goals.Count;
-            // A dungeon entrance is searched to the side its stairs face; the road still leads to
-            // (and is pinned at) the location.
             List<Vector2> centres = goals;
-            goals = goals.ConvertAll(Approach);
+            Progress.Stage("Measuring the locations", 0f, 0.01f);
+            yield return Footprints.Wait();
+            // A location is searched to the outer end of its lane - out of its door, or between its
+            // stones on the road's side (Approaches) -, else a dungeon entrance to the side its
+            // stairs face; the road still leads to (and is pinned at) the location.
+            Approaches.Lane?[] lanes = new Approaches.Lane?[centres.Count];
+            goals = new List<Vector2>(centres.Count);
+            for (int g = 0; g < centres.Count; g++)
+            {
+                Vector2 from = NearestStart(starts, centres[g]);
+                if (Approaches.LaneTo(centres[g], from, out Approaches.Lane lane))
+                {
+                    lanes[g] = lane;
+                    goals.Add(lane.Outer);
+                }
+                else
+                {
+                    goals.Add(Approach(centres[g]));
+                }
+            }
+            // A road out of the sacrificial stones sets out along the lane between them toward the
+            // nearest goal: it ran straight through a stone (the user, 2026-10-02). Nothing else
+            // sets out from within them, or a branch off an earlier road's first metres cuts through one.
+            starts = new List<Start>(starts);
+            List<Approaches.Lane> startLanes = new List<Approaches.Lane>();
+            List<Circle> stones = new List<Circle>();
+            List<Vector2> temples = Planner.Temples();
+            for (int s = 0; s < starts.Count; s++)
+            {
+                Vector2 at = starts[s].Position;
+                if (temples.Exists(t => (t - at).sqrMagnitude < 1f) && LocationAt(at, out ZoneSystem.ZoneLocation temple)
+                    && Approaches.LaneTo(at, Nearest(centres, at), out Approaches.Lane lane))
+                {
+                    startLanes.Add(lane);
+                    stones.Add(new Circle { Center = at, Radius = Footprints.Radius(temple) });
+                    starts[s] = new Start(lane.Outer, starts[s].Cost, starts[s].HubCost);
+                }
+            }
+            starts.RemoveAll(start => stones.Exists(c => c.Contains(start.Position)));
             // A goal in the Mistlands is searched to an entry at their edge first (Entries).
             List<Vector2> entryGoals = null;
             List<int> entryOwners = null;
-            Progress.Stage("Measuring the locations", 0f, 0.01f);
-            yield return Footprints.Wait();
             // The game's harbours on the way, their zones generated first where need be (Ports).
             List<Ports.Port> ports = null;
             if (options.Kind == RoadKind.Main)
@@ -314,11 +359,24 @@ namespace OdinsPaths
             PathSearch last = outcome.Search;
             List<Vector2> route = new List<Vector2>(last.Result);
             List<float> costs = new List<float>(last.RouteCosts);
+            // Out of the stones along their lane, then on from its outer end.
+            Approaches.Lane? laneOut = null;
+            foreach (Approaches.Lane lane in startLanes)
+            {
+                if ((lane.Outer - last.Origin.Position).sqrMagnitude < 0.01f)
+                {
+                    laneOut = lane;
+                    route[0] = lane.Outer;
+                    route.Insert(0, lane.Inner);
+                    costs.Insert(0, costs[0]);
+                }
+            }
             int reached = goals.IndexOf(last.Goal);
             outcome.Goal = reached >= 0 ? centres[reached] : last.Goal;
             int entry = entryGoals != null ? entryGoals.IndexOf(last.Goal) : -1;
             if (entry >= 0 && entryOwners[entry] >= 0)
             {
+                reached = entryOwners[entry];
                 // From the edge to the goal inside: a search of its own in a small ellipse, so the
                 // Mistlands' cliffs are never flooded from afar.
                 Vector2 goal = goals[entryOwners[entry]];
@@ -366,7 +424,22 @@ namespace OdinsPaths
                     report("No way from the Mistlands' edge to the goal; the road ends at the edge.");
                 }
             }
-            EndAtEdge(route, costs, outcome.Goal);
+            Approaches.Lane? laneIn = reached >= 0 && !outcome.StoppedAtEntry ? lanes[reached] : null;
+            if (laneIn.HasValue)
+            {
+                // Straight in along the lane, from its outer end to its inner.
+                Approaches.Lane lane = laneIn.Value;
+                foreach (Vector2 p in new[] { lane.Outer, lane.Inner })
+                {
+                    costs.Add(costs[costs.Count - 1] + Vector2.Distance(route[route.Count - 1], p));
+                    route.Add(p);
+                }
+                outcome.Lane = lane;
+            }
+            else
+            {
+                EndAtEdge(route, costs, outcome.Goal);
+            }
             int piers = Ports.Splice(route, costs, ports);
             if (piers > 0)
             {
@@ -374,8 +447,35 @@ namespace OdinsPaths
             }
             // From the network point itself, not its cell's centre: the junction lies on the old road.
             line = new List<Vector2>(route);
-            line[0] = last.Origin.Position;
+            if (!laneOut.HasValue)
+            {
+                line[0] = last.Origin.Position;
+            }
             outcome.Trail = new Trail(line, options.Kind);
+            if (laneOut.HasValue)
+            {
+                outcome.Trail.DirtHead(laneOut.Value.Dirt, FanTail);
+                report("Out of the stones between them from " + laneOut.Value.Inner.ToString("F0") + " to " + laneOut.Value.Outer.ToString("F0") + ".");
+            }
+            if (outcome.Lane.HasValue)
+            {
+                Approaches.Lane lane = outcome.Lane.Value;
+                outcome.Trail.DirtTail(lane.Dirt, FanTail);
+                report("Straight in " + (lane.Door ? "to the door's way in" : "between its stones") + " from " + lane.Outer.ToString("F0")
+                    + " to " + lane.Inner.ToString("F0") + ", the last " + lane.Dirt.ToString("F0") + " m dirt.");
+            }
+            else if (!outcome.StoppedAtEntry && LocationAt(outcome.Goal, out ZoneSystem.ZoneLocation _))
+            {
+                // No lane known: a fan toward the centre hides where the way in is.
+                Vector2 end = line[line.Count - 1];
+                float distance = Vector2.Distance(end, outcome.Goal);
+                if (distance >= FanShortest)
+                {
+                    outcome.Fan = Trail.Fan(end, outcome.Goal, Mathf.Min(distance, FanLength), options.Kind.HalfWidthAt(end), FanHalfWidth);
+                    outcome.Trail.DirtTail(0f, FanTail);
+                    report("No lane into " + outcome.Goal.ToString("F0") + "; a dirt fan of " + outcome.Fan.Length.ToString("F0") + " m toward its centre.");
+                }
+            }
             outcome.Road = Network.FromLay(outcome.Trail, route, costs, last.Origin, outcome.Goal, target);
             options.Found?.Invoke(outcome);
             if (!options.Write)
@@ -387,7 +487,14 @@ namespace OdinsPaths
                 + " ms; writing the terrain...");
             float started = Time.realtimeSinceStartup;
             Progress.Stage("Laying the road", SearchShare, WriteShare);
-            yield return TerrainWriter.Write(outcome.Trail, locations, structures, outcome.Written);
+            // The fan after the road: it never paints over its stone.
+            List<Approaches.Lane> written = new List<Approaches.Lane>();
+            if (outcome.Lane.HasValue)
+            {
+                written.Add(outcome.Lane.Value);
+            }
+            yield return TerrainWriter.Write(outcome.Fan != null ? new List<Trail> { outcome.Trail, outcome.Fan } : new List<Trail> { outcome.Trail },
+                ForWriting(locations, written, laneOut), structures, outcome.Written);
             Progress.Stage("Clearing trees and rocks", WriteShare, ClearShare);
             yield return Clearing.Clear(outcome.Trail, outcome.Cleared);
             List<Buildings.DoorPath> doorPaths = new List<Buildings.DoorPath>();
@@ -415,15 +522,38 @@ namespace OdinsPaths
         /// <summary>The location instance whose centre is at p, if any - a base is none.</summary>
         private static bool LocationAt(Vector2 p, out ZoneSystem.ZoneLocation location)
         {
-            location = null;
+            bool found = LocationAt(p, out ZoneSystem.LocationInstance instance);
+            location = instance.m_location;
+            return found;
+        }
+
+        private static bool LocationAt(Vector2 p, out ZoneSystem.LocationInstance instance)
+        {
             ZoneSystem zones = ZoneSystem.instance;
-            if (zones == null || !zones.m_locationInstances.TryGetValue(ZoneSystem.GetZone(new Vector3(p.x, 0f, p.y)), out ZoneSystem.LocationInstance instance)
+            if (zones == null || !zones.m_locationInstances.TryGetValue(ZoneSystem.GetZone(new Vector3(p.x, 0f, p.y)), out instance)
                 || (new Vector2(instance.m_position.x, instance.m_position.z) - p).sqrMagnitude > 1f)
             {
+                instance = default;
                 return false;
             }
-            location = instance.m_location;
-            return location != null;
+            return instance.m_location != null;
+        }
+
+        /// <summary>The start nearest the point: the side a road will come from.</summary>
+        private static Vector2 NearestStart(List<Start> starts, Vector2 to)
+        {
+            Vector2 best = to;
+            float bestDistance = float.MaxValue;
+            foreach (Start start in starts)
+            {
+                float distance = (start.Position - to).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = start.Position;
+                }
+            }
+            return best;
         }
 
         /// <summary>
@@ -436,42 +566,13 @@ namespace OdinsPaths
         /// </summary>
         public static Vector2 Approach(Vector2 goal)
         {
-            if (!LocationAt(goal, out ZoneSystem.ZoneLocation location) || !location.m_slopeRotation || location.m_interiorRadius <= 0f)
+            if (!LocationAt(goal, out ZoneSystem.ZoneLocation location) || !location.m_slopeRotation || location.m_interiorRadius <= 0f
+                || !Approaches.SlopeYaw(goal, location, out float yaw))
             {
                 return goal;
             }
-            float radius = location.m_exteriorRadius;
-            Vector2 high = goal;
-            Vector2 low = goal;
-            float highest = float.MinValue;
-            float lowest = float.MaxValue;
-            for (int ring = 1; ring <= 2; ring++)
-            {
-                for (int k = 0; k < 16; k++)
-                {
-                    float angle = k * Mathf.PI / 8f;
-                    Vector2 p = goal + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius * ring * 0.5f;
-                    float h = Ground.Height(p.x, p.y);
-                    if (h > highest)
-                    {
-                        highest = h;
-                        high = p;
-                    }
-                    if (h < lowest)
-                    {
-                        lowest = h;
-                        low = p;
-                    }
-                }
-            }
-            Vector2 downhill = low - high;
-            if (downhill.sqrMagnitude < 0.01f)
-            {
-                return goal;
-            }
-            // Unity's yaw: 0 along +z, clockwise seen from above.
-            float yaw = Mathf.Round(Mathf.Atan2(downhill.x, downhill.y) * Mathf.Rad2Deg / 22.5f) * 22.5f * Mathf.Deg2Rad;
-            return goal + new Vector2(Mathf.Sin(yaw), Mathf.Cos(yaw)) * (radius + 2f);
+            yaw *= Mathf.Deg2Rad;
+            return goal + new Vector2(Mathf.Sin(yaw), Mathf.Cos(yaw)) * (location.m_exteriorRadius + 2f);
         }
 
         /// <summary>
@@ -572,6 +673,8 @@ namespace OdinsPaths
             public List<float> ConsideredDistances = new List<float>();
             /// <summary>Null when there was nothing to search for.</summary>
             public PathSearch Search;
+            /// <summary>The lanes the spurs end along (<see cref="Approaches.LaneTo"/>).</summary>
+            public List<Approaches.Lane> Lanes = new List<Approaches.Lane>();
             /// <summary>One per point of interest cheap enough to reach; the caller adds them and <see cref="Connected"/> to the network.</summary>
             public List<Network.Road> Roads = new List<Network.Road>();
             public List<Trail> Trails = new List<Trail>();
@@ -614,6 +717,7 @@ namespace OdinsPaths
             // Each point of interest with a margin: its ruins and walls are not in a spur's way.
             List<Circle> pois = new List<Circle>();
             List<ZoneSystem.LocationInstance> instances = new List<ZoneSystem.LocationInstance>();
+            List<Approaches.Lane?> lanes = new List<Approaches.Lane?>();
             foreach (string part in OdinsPathsPlugin.PointsOfInterest.Value.Split(','))
             {
                 string name = part.Trim();
@@ -634,9 +738,19 @@ namespace OdinsPaths
                     {
                         continue;
                     }
-                    // Just outside its circle, facing the road: to the crypt's yard, not through the village walls.
-                    Vector2 toward = nearest - centre;
-                    goals.Add(centre + (toward.sqrMagnitude > 0f ? toward.normalized : Vector2.right) * (radius + 1f));
+                    // Along its lane, out of a crypt's door or between an altar's stones (Approaches);
+                    // else just outside its circle, facing the road: to the yard, not through the village walls.
+                    if (Approaches.LaneTo(centre, nearest, out Approaches.Lane lane))
+                    {
+                        goals.Add(lane.Outer);
+                        lanes.Add(lane);
+                    }
+                    else
+                    {
+                        Vector2 toward = nearest - centre;
+                        goals.Add(centre + (toward.sqrMagnitude > 0f ? toward.normalized : Vector2.right) * (radius + 1f));
+                        lanes.Add(null);
+                    }
                     centres.Add(centre);
                     names.Add(name);
                     pois.Add(new Circle { Center = centre, Radius = radius + SpurApproach });
@@ -691,13 +805,21 @@ namespace OdinsPaths
                     outcome.Connected.Add(centres[settled.Goal]);
                     continue;
                 }
-                // From the road's own point, to the edge itself rather than its cell's centre.
+                // From the road's own point, to the edge itself rather than its cell's centre, and on along its lane.
                 List<Vector2> route = new List<Vector2>(settled.Route);
+                List<float> costs = new List<float>(settled.Costs);
                 route[0] = settled.Origin.Position;
                 route[route.Count - 1] = goals[settled.Goal];
+                Approaches.Lane? lane = lanes[settled.Goal];
+                if (lane.HasValue)
+                {
+                    costs.Add(costs[costs.Count - 1] + Vector2.Distance(lane.Value.Outer, lane.Value.Inner));
+                    route.Add(lane.Value.Inner);
+                    outcome.Lanes.Add(lane.Value);
+                }
                 Trail trail = new Trail(route, RoadKind.Spur);
                 outcome.Trails.Add(trail);
-                outcome.Roads.Add(Network.FromLay(trail, settled.Route, settled.Costs, settled.Origin, goals[settled.Goal], names[settled.Goal]));
+                outcome.Roads.Add(Network.FromLay(trail, route, costs, settled.Origin, goals[settled.Goal], names[settled.Goal]));
                 outcome.Connected.Add(centres[settled.Goal]);
             }
             if (write && outcome.Trails.Count > 0)
@@ -705,7 +827,7 @@ namespace OdinsPaths
                 // All of them in one pass each, the writing four fifths of what is left and the clearing the rest.
                 float writing = SpurSearchShare + (1f - SpurSearchShare) * 0.8f;
                 Progress.Stage("Laying the side paths", SpurSearchShare, writing);
-                yield return TerrainWriter.Write(outcome.Trails, locations, structures, outcome.Written);
+                yield return TerrainWriter.Write(outcome.Trails, ForWriting(locations, outcome.Lanes, null), structures, outcome.Written);
                 Progress.Stage("Clearing the side paths", writing, 1f);
                 yield return Clearing.Clear(outcome.Trails, outcome.Cleared);
                 foreach (Trail trail in outcome.Trails)
@@ -715,6 +837,30 @@ namespace OdinsPaths
                 }
             }
             done(outcome);
+        }
+
+        /// <summary>
+        /// The circles the writer keeps its levelling out of: a lane's own location is levelled
+        /// into up to the ground it levels itself (<see cref="Approaches.Lane.Flats"/>); the
+        /// sacrificial stones a road sets out of keep the writer's own distance (TerrainWriter.TempleKeep).
+        /// </summary>
+        private static List<Circle> ForWriting(List<Circle> locations, List<Approaches.Lane> lanes, Approaches.Lane? laneOut)
+        {
+            if (lanes.Count == 0 && !laneOut.HasValue)
+            {
+                return locations;
+            }
+            List<Circle> result = new List<Circle>(locations);
+            foreach (Approaches.Lane lane in lanes)
+            {
+                result.RemoveAll(c => (c.Center - lane.Centre).sqrMagnitude < 1f);
+                result.AddRange(lane.Flats);
+            }
+            if (laneOut.HasValue)
+            {
+                result.RemoveAll(c => (c.Center - laneOut.Value.Centre).sqrMagnitude < 1f);
+            }
+            return result;
         }
 
         private static Vector2 Nearest(List<Vector2> points, Vector2 to)

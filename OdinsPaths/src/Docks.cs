@@ -41,7 +41,7 @@ namespace OdinsPaths
                 "Build a small, weathered dock at every new harbour, of the biome's own materials, and the buildings " +
                 "beside its road. Players need the mod to see the furniture; the rest is the game's own building pieces.");
             ChestChance = config.Bind("Harbours", "ChestChance", 0.35f, new ConfigDescription(
-                "How likely a dock or a harbour building holds a treasure chest with the loot of its biome.",
+                "How likely a harbour building holds a treasure chest with the loot of its biome.",
                 new AcceptableValueRange<float>(0f, 1f)));
             EnemyChance = config.Bind("Harbours", "EnemyChance", 0.2f, new ConfigDescription(
                 "How likely a dock or a harbour building is haunted by one to three enemies of its biome, which rise when a " +
@@ -71,7 +71,6 @@ namespace OdinsPaths
             /// <summary>0 a ruin, 1 as good as new; NaN: at random.</summary>
             public float Condition = float.NaN;
             /// <summary>NaN: the settings'.</summary>
-            public float ChestChance = float.NaN;
             public float EnemyChance = float.NaN;
             /// <summary>Build even with docks off in the settings.</summary>
             public bool Force;
@@ -187,7 +186,8 @@ namespace OdinsPaths
                         Biome = biome,
                         Dock = true,
                         Condition = request.Condition,
-                        ChestChance = float.IsNaN(request.ChestChance) ? ChestChance.Value : request.ChestChance,
+                        // Never a chest on a dock (the user, 2026-10-02): the buildings hold the loot.
+                        ChestChance = 0f,
                         EnemyChance = float.IsNaN(request.EnemyChance) ? EnemyChance.Value : request.EnemyChance,
                         Edit = request.Edit,
                         Creator = request.Creator,

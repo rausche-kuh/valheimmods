@@ -74,6 +74,23 @@ namespace OdinsPaths
         public readonly List<bool> Quay = new List<bool>();
         /// <summary>The terrain writer may level again what the same lay levelled before: a door path across the road's shoulder (<see cref="Ramp"/>).</summary>
         public bool OverOwn;
+        /// <summary>A fan's half width at each point (<see cref="Fan"/>); null: the kind's.</summary>
+        public List<float> Spread;
+        /// <summary>A fan's paint strength at each point, fading out; null: full.</summary>
+        public List<float> Strength;
+        /// <summary>Its last this many points are dirt, after as many again fading from stone (<see cref="DirtTail"/>).</summary>
+        private int dirtTail;
+        private int dirtFade;
+        /// <summary>Its first this many points are dirt, the same way (<see cref="DirtHead"/>).</summary>
+        private int dirtHead;
+        private int dirtHeadFade;
+
+        /// <summary>Paint only, no levelling: a road's dirt fan (<see cref="Fan"/>).</summary>
+        public bool PaintOnly => Spread != null;
+        /// <summary>Half the widest the trail gets.</summary>
+        public float MaxHalfWidth => Spread != null ? Mathf.Max(Spread[0], Spread[Spread.Count - 1]) : Kind.MaxHalfWidth;
+        /// <summary>How far from the line the writer may change anything: edge and shoulder.</summary>
+        public float Reach => Spread != null ? MaxHalfWidth * (1f + TerrainWriter.EdgeWobble) : Kind.Reach;
 
         public Trail(List<Vector2> route, RoadKind kind)
         {
@@ -481,16 +498,58 @@ namespace OdinsPaths
         }
 
         /// <summary>
+        /// The dirt where a road stops short of its place (the user, 2026-10-02): a straight track
+        /// from the road's end toward the way in, widening from the road's half width to wide and
+        /// fading out, painted and never levelled. Where the door is not known it hides that.
+        /// </summary>
+        public static Trail Fan(Vector2 from, Vector2 toward, float length, float startHalf, float endHalf)
+        {
+            Vector2 to = from + (toward - from).normalized * length;
+            Trail fan = new Trail(new List<Vector2> { from, to }, RoadKind.Spur);
+            int n = fan.Points.Count;
+            fan.Spread = new List<float>(n);
+            fan.Strength = new List<float>(n);
+            for (int i = 0; i < n; i++)
+            {
+                float t = n > 1 ? (float)i / (n - 1) : 1f;
+                fan.Spread.Add(Mathf.Lerp(startHalf, endHalf, Mathf.Sqrt(t)));
+                fan.Strength.Add(1f - Mathf.SmoothStep(0f, 1f, t));
+            }
+            return fan;
+        }
+
+        /// <summary>
+        /// The last metres are dirt - inside an altar's ring, into a <see cref="Fan"/> that cannot
+        /// paint over stone -, the stone fading into it over the fade before.
+        /// </summary>
+        public void DirtTail(float metres, float fade)
+        {
+            dirtTail = Mathf.Max(0, Mathf.RoundToInt(metres / Spacing));
+            dirtFade = Mathf.Max(1, Mathf.RoundToInt(fade / Spacing));
+        }
+
+        /// <summary>The first metres are dirt - a road setting out between the sacrificial stones -, fading into stone after.</summary>
+        public void DirtHead(float metres, float fade)
+        {
+            dirtHead = Mathf.Max(0, Mathf.RoundToInt(metres / Spacing));
+            dirtHeadFade = Mathf.Max(1, Mathf.RoundToInt(fade / Spacing));
+        }
+
+        /// <summary>
         /// Half the road's width at a point of segment i..i+1: its kind's, drifting along the
-        /// road, and no more than the room its legs leave it.
+        /// road, and no more than the room its legs leave it; a fan's own.
         /// </summary>
         public float HalfWidthAt(int segment, Vector2 at)
         {
+            if (Spread != null)
+            {
+                return (Spread[segment] + Spread[Mathf.Min(segment + 1, Spread.Count - 1)]) * 0.5f;
+            }
             float room = Mathf.Min(LegRoom[segment], LegRoom[Mathf.Min(segment + 1, LegRoom.Count - 1)]);
             return Mathf.Min(Kind.HalfWidthAt(at), room);
         }
 
-        /// <summary>The paint at segment i..i+1: the kind's, turning to dirt into the Mistlands.</summary>
+        /// <summary>The paint at segment i..i+1: the kind's, turning to dirt into the Mistlands and over a dirt tail.</summary>
         public Color PaintAt(int segment)
         {
             if (!Kind.Paved)
@@ -498,6 +557,14 @@ namespace OdinsPaths
                 return Kind.Paint;
             }
             float built = Mathf.Min(Built[segment], Built[Mathf.Min(segment + 1, Built.Count - 1)]);
+            if (dirtFade > 0)
+            {
+                built = Mathf.Min(built, Mathf.Clamp01((float)(Points.Count - 1 - segment - dirtTail) / dirtFade));
+            }
+            if (dirtHeadFade > 0)
+            {
+                built = Mathf.Min(built, Mathf.Clamp01((float)(segment - dirtHead) / dirtHeadFade));
+            }
             return Handover(Heightmap.m_paintMaskDirt, Kind.Paint, built);
         }
 
@@ -518,6 +585,9 @@ namespace OdinsPaths
                 Mathf.Lerp(from.b, to.b, to.b > from.b ? rise : fall),
                 Mathf.Lerp(from.a, to.a, to.a > from.a ? rise : fall));
         }
+
+        /// <summary>How strongly segment i..i+1 is painted: a fan fades out.</summary>
+        public float StrengthAt(int segment) => Strength != null ? Strength[segment] : 1f;
 
         /// <summary>The deeper cut of segment i..i+1's two ends.</summary>
         public float MaxCutAt(int segment) => Mathf.Max(MaxCut[segment], MaxCut[Mathf.Min(segment + 1, MaxCut.Count - 1)]);
