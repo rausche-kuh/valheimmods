@@ -1,0 +1,9 @@
+{
+    "name": "OdinsBeacon",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/rausche-kuh/valheimmods",
+    "description": "Find your friends: a glowing marker over every other player, seen through walls and terrain, with an arrow at the screen edge when off screen. Player markers, teammate locator, co-op HUD",
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2350"
+    ]
+}

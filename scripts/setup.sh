@@ -154,7 +154,7 @@ cat > "$root/Valheim.props" <<PROPS
 </Project>
 PROPS
 
-for mod in $(all_mods); do (cd "$root" && dotnet restore "$mod/$mod.csproj"); done
+for mod in $(all_mods); do is_pack "$mod" || dotnet restore "$(mod_dir "$mod")/$mod.csproj"; done
 
 echo
 ok 'Setup done. Next: scripts/deploy.sh (build + install), scripts/decompile.sh (game source).'

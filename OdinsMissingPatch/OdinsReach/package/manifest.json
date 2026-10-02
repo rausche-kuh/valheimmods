@@ -1,0 +1,9 @@
+{
+    "name": "OdinsReach",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/rausche-kuh/valheimmods",
+    "description": "Nearby chests count as your inventory: craft and refuel from them, quick stack into them, fill, take, place and sort with buttons. Each tweak on its own switch",
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2350"
+    ]
+}

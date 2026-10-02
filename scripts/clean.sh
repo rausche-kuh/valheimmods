@@ -32,8 +32,10 @@ scrub() { [ -e "$1" ] || return 0; rm -rf "$1"; gone "$1"; }
 
 step "Cleaning ${mods[*]}..."
 for mod in "${mods[@]}"; do
-    scrub "$root/$mod/bin"
-    scrub "$root/$mod/obj"
+    is_pack "$mod" && continue
+    dir=$(mod_dir "$mod")
+    scrub "$dir/bin"
+    scrub "$dir/obj"
 done
 scrub "$root/dist"
 

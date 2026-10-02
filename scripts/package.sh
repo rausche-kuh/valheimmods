@@ -2,8 +2,9 @@
 # Builds Thunderstore-ready zips in dist/, one per mod. A mod's version comes from the VERSION
 # const in its plugin source and is stamped into its package/manifest.json. The zip ships the mod's
 # package/ folder - manifest.json, icon.png, README.md (the Thunderstore page) and CHANGELOG.md
-# (its Changelog tab).
-# With no mod names, every mod in the repo is packaged.
+# (its Changelog tab). A pack has no DLL: its zip is the package/ files alone, its manifest's
+# dependencies naming the members.
+# With no mod names, every mod and pack in the repo is packaged.
 #
 # Usage: scripts/package.sh [mod ...]
 set -euo pipefail
@@ -21,29 +22,31 @@ done
 mods=($(resolve_mods "${mods[@]+"${mods[@]}"}"))
 
 for mod in "${mods[@]}"; do
+    dir=$(mod_dir "$mod")
     version=$(mod_version "$mod")
     step "Packaging $mod $version..."
 
-    manifest="$root/$mod/package/manifest.json"
+    manifest="$dir/package/manifest.json"
     # The Thunderstore page: package/README.md, not the mod's dev facing README.md.
-    readme="$root/$mod/package/README.md"
+    readme="$dir/package/README.md"
     [ -f "$readme" ] || die "$mod/package/README.md missing - it is the Thunderstore description."
     # Thunderstore renders a CHANGELOG.md at the zip root as the Changelog tab.
-    changelog="$root/$mod/package/CHANGELOG.md"
+    changelog="$dir/package/CHANGELOG.md"
     [ -f "$changelog" ] || die "$mod/package/CHANGELOG.md missing - it is the Thunderstore changelog."
     # Thunderstore dislikes a BOM in manifest.json; sed in place keeps the file plain UTF-8.
     sed -i -E "s;(\"version_number\"[[:space:]]*:[[:space:]]*\")[^\"]+;\1$version;" "$manifest"
-
-    dotnet build "$root/$mod/$mod.csproj" -c Release
 
     stage="$root/dist/stage"
     rm -rf "$stage"
     mkdir -p "$stage"
 
-    cp "$root/$mod/bin/Release/$mod.dll" "$stage"
-    [ -d "$root/$mod/assets" ] && cp -r "$root/$mod/assets/." "$stage" || true
+    if ! is_pack "$mod"; then
+        dotnet build "$dir/$mod.csproj" -c Release
+        cp "$dir/bin/Release/$mod.dll" "$stage"
+        [ -d "$dir/assets" ] && cp -r "$dir/assets/." "$stage" || true
+    fi
     cp "$manifest" "$stage"
-    cp "$root/$mod/package/icon.png" "$stage"
+    cp "$dir/package/icon.png" "$stage"
     cp "$readme" "$stage"
     cp "$changelog" "$stage"
 

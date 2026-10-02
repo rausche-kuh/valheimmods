@@ -2,6 +2,22 @@
 
 The game, the build and the tools around it, in the detail the root `CLAUDE.md` leaves out.
 
+## What you need
+
+|                      |                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| .NET SDK 8           | `winget install Microsoft.DotNet.SDK.8`, `sudo pacman -S dotnet-sdk`, `sudo apt install dotnet-sdk-8.0`, `sudo dnf install dotnet-sdk-8.0` |
+| Valheim              | Installed through Steam. On Linux, the native build.                                                                                       |
+| BepInEx              | Installed into a profile by a mod manager — [Gale](https://github.com/Kesomannen/gale) or r2modman.                                        |
+| binutils             | Linux only, for `strings`; used just to read the Unity and BepInEx versions. Optional.                                                     |
+| `python3` or `zip`   | Linux only, for `package.sh`.                                                                                                              |
+| `python3` and `curl` | Linux only, for `publish.sh`.                                                                                                              |
+| ImageMagick 7        | Linux only, for `icon.sh`.                                                                                                                 |
+
+No Mono, no Wine on Linux: the game assemblies are `net472` references and the NuGet package
+`Microsoft.NETFramework.ReferenceAssemblies` supplies the framework, so the .NET 8 SDK builds the
+plugins on its own.
+
 ## The game
 
 - Valheim runs on **Unity 6000.0.75f1** (Mono), BepInEx **5.4.x**.
@@ -19,7 +35,7 @@ To read UI layout out of one, `uv venv` + `uv pip install UnityPy` in a scratch 
 `UnityPy.load(bundle)`, find the `GameObject` by name and walk its `RectTransform` children
 printing `m_AnchoredPosition`, `m_SizeDelta`, `m_AnchorMin/Max` and `m_Pivot`. That is how the
 positions of the inventory screen's panels and readout boxes in
-`OdinsMissingPatch/docs/inventory-ui.md` were measured.
+`OdinsMissingPatch/OdinsReach/docs/inventory-ui.md` were measured.
 
 ## The build
 
@@ -31,6 +47,8 @@ positions of the inventory screen's panels and readout boxes in
   Linux, no Mono or Wine. Backslash paths in the MSBuild files are normalised by MSBuild, so leave
   them alone.
 - Target framework is `net472` (matches previously shipped builds).
+- Build settings live in `Directory.Build.props`, never in a mod's csproj. Its item globs resolve
+  against each mod directory; shared paths use `$(MSBuildThisFileDirectory)`.
 - `EnableDefaultCompileItems` is off and `Compile` is globbed from `src/` only — otherwise the
   SDK would try to compile everything under `decompiled/`.
 - `ilspycmd` is pinned to `9.1.0.7988`: 10.x and newer ship as net10.0 tools and refuse to

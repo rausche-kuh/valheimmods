@@ -34,15 +34,25 @@ if pgrep -x valheim.x86_64 >/dev/null 2>&1 || pgrep -x valheim.exe >/dev/null 2>
 fi
 
 for mod in "${mods[@]}"; do
-    step "Deploying $mod..."
-    dotnet build "$root/$mod/$mod.csproj" -c "$configuration"
-
+    dir=$(mod_dir "$mod")
     plugin_dir="$profile/BepInEx/plugins/$author-$mod"
+    if is_pack "$mod"; then
+        # A pack is installed through its members. Its folder only ever held a DLL from before it
+        # became a pack, which would now patch everything a second time beside the members.
+        if [ -f "$plugin_dir/$mod.dll" ]; then
+            rm -f "$plugin_dir/$mod.dll"
+            note "Removed the old $mod.dll from $plugin_dir - $mod is a pack now"
+        fi
+        continue
+    fi
+    step "Deploying $mod..."
+    dotnet build "$dir/$mod.csproj" -c "$configuration"
+
     mkdir -p "$plugin_dir"
-    cp "$root/$mod/bin/$configuration/$mod.dll" "$plugin_dir"
-    [ -d "$root/$mod/assets" ] && cp -r "$root/$mod/assets/." "$plugin_dir" || true
-    cp "$root/$mod/package/manifest.json" "$plugin_dir"
-    cp "$root/$mod/package/icon.png" "$plugin_dir"
+    cp "$dir/bin/$configuration/$mod.dll" "$plugin_dir"
+    [ -d "$dir/assets" ] && cp -r "$dir/assets/." "$plugin_dir" || true
+    cp "$dir/package/manifest.json" "$plugin_dir"
+    cp "$dir/package/icon.png" "$plugin_dir"
 
     ok "Installed to $plugin_dir"
 done

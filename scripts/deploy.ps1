@@ -33,17 +33,28 @@ if (Get-Process -Name valheim -ErrorAction SilentlyContinue) {
 }
 
 foreach ($mod in $Mods) {
+    $dir = Get-ModDir $mod
+    $pluginDir = Join-Path $ProfileDir "BepInEx\plugins\$Author-$mod"
+    if (Test-Pack $mod) {
+        # A pack is installed through its members. Its folder only ever held a DLL from before it
+        # became a pack, which would now patch everything a second time beside the members.
+        $stale = Join-Path $pluginDir "$mod.dll"
+        if (Test-Path $stale) {
+            Remove-Item $stale -Force
+            Write-Host "Removed the old $mod.dll from $pluginDir - $mod is a pack now" -ForegroundColor Yellow
+        }
+        continue
+    }
     Write-Host "Deploying $mod..." -ForegroundColor Cyan
-    dotnet build (Join-Path $Root "$mod\$mod.csproj") -c $Configuration
+    dotnet build (Join-Path $dir "$mod.csproj") -c $Configuration
     if ($LASTEXITCODE -ne 0) { throw "Build failed for $mod." }
 
-    $pluginDir = Join-Path $ProfileDir "BepInEx\plugins\$Author-$mod"
     New-Item -ItemType Directory $pluginDir -Force | Out-Null
-    Copy-Item (Join-Path $Root "$mod\bin\$Configuration\$mod.dll") $pluginDir -Force
-    $assets = Join-Path $Root "$mod\assets"
+    Copy-Item (Join-Path $dir "bin\$Configuration\$mod.dll") $pluginDir -Force
+    $assets = Join-Path $dir 'assets'
     if (Test-Path $assets) { Copy-Item "$assets\*" $pluginDir -Recurse -Force }
-    Copy-Item (Join-Path $Root "$mod\package\manifest.json") $pluginDir -Force
-    Copy-Item (Join-Path $Root "$mod\package\icon.png") $pluginDir -Force
+    Copy-Item (Join-Path $dir 'package\manifest.json') $pluginDir -Force
+    Copy-Item (Join-Path $dir 'package\icon.png') $pluginDir -Force
 
     Write-Host "Installed to $pluginDir" -ForegroundColor Green
 }

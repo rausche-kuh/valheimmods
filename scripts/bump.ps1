@@ -5,14 +5,14 @@
     minor or patch - from a menu, or pass them as arguments. Updates all three places a version
     lives: the VERSION const in the mod's plugin source (the source of truth), version_number in
     its package\manifest.json, and the ## Unreleased heading in its package\CHANGELOG.md, which
-    becomes the heading for the new version.
+    becomes the heading for the new version. A pack has no source: its manifest is the version.
 
     Nothing is written until you confirm, and nothing is built, committed or published - run
     scripts\package.ps1 afterwards for the zip.
 .EXAMPLE
     .\scripts\bump.ps1
 .EXAMPLE
-    .\scripts\bump.ps1 OdinsMissingPatch patch -Yes
+    .\scripts\bump.ps1 OdinsEssentials patch -Yes
 #>
 [CmdletBinding()]
 param(
@@ -29,14 +29,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
-
-# The source file holding the VERSION const - where the bump has to be written.
-function Get-VersionFile([string]$Mod) {
-    foreach ($file in Get-ChildItem (Join-Path $Root "$Mod\src") -Filter *.cs -Recurse) {
-        if ((Get-Content $file.FullName -Raw) -match 'VERSION\s*=\s*"[^"]+"') { return $file.FullName }
-    }
-    throw "could not find VERSION in $Mod\src"
-}
 
 # major.minor.patch, bumped by kind - a minor bump zeroes the patch, a major one both.
 function Step-Version([string]$Version, [string]$Kind) {
@@ -76,8 +68,9 @@ if ($Mod) {
 
 $current = Get-ModVersion $Mod
 $versionFile = Get-VersionFile $Mod
-$manifestPath = Join-Path $Root "$Mod\package\manifest.json"
-$changelogPath = Join-Path $Root "$Mod\package\CHANGELOG.md"
+$modDir = Get-ModDir $Mod
+$manifestPath = Join-Path $modDir 'package\manifest.json'
+$changelogPath = Join-Path $modDir 'package\CHANGELOG.md'
 if (-not (Test-Path $manifestPath))  { throw "$Mod\package\manifest.json missing" }
 if (-not (Test-Path $changelogPath)) { throw "$Mod\package\CHANGELOG.md missing" }
 
@@ -101,7 +94,7 @@ foreach ($line in $lines) {
 
 Write-Host ''
 Write-Host "$Mod $current -> $next ($Kind)" -ForegroundColor Cyan
-Write-Host "  $($versionFile.Substring($Root.Length + 1))"
+if ($versionFile -ne $manifestPath) { Write-Host "  $($versionFile.Substring($Root.Length + 1))" }
 Write-Host "  $Mod\package\manifest.json"
 Write-Host "  $Mod\package\CHANGELOG.md   ## Unreleased -> ## $next"
 
@@ -124,8 +117,11 @@ if (-not $Yes) {
 
 $utf8 = New-Object Text.UTF8Encoding $false
 
-$source = (Get-Content $versionFile -Raw) -replace '(VERSION\s*=\s*")[^"]+', "`${1}$next"
-[IO.File]::WriteAllText($versionFile, $source, $utf8)
+# A pack's version lives in its manifest alone, written just below.
+if ($versionFile -ne $manifestPath) {
+    $source = (Get-Content $versionFile -Raw) -replace '(VERSION\s*=\s*")[^"]+', "`${1}$next"
+    [IO.File]::WriteAllText($versionFile, $source, $utf8)
+}
 
 $manifest = (Get-Content $manifestPath -Raw) -replace '("version_number"\s*:\s*")[^"]+', "`${1}$next"
 # Thunderstore dislikes a BOM in manifest.json, so bypass Set-Content's encoding defaults.

@@ -9,7 +9,8 @@
 #
 # The API tokens come from THUNDERSTORE_TOKEN and HEXIUM_TOKEN, or from a gitignored .publish.env
 # at the repo root holding those two lines. Shows the plan and waits for a y before uploading.
-# With no mod names, every mod in the repo is checked.
+# With no mod names, every mod and pack in the repo is checked; packs go last, since Thunderstore
+# only takes a pack whose dependencies are already up.
 #
 # Usage: scripts/publish.sh [-n|--dry-run] [-y|--yes] [mod ...]
 set -euo pipefail
@@ -83,9 +84,10 @@ uploads=()   # "mod version key root tokenvar categories-json"
 dirty=()
 step 'Checking what is published...'
 for mod in "${mods[@]}"; do
-    spec="$root/$mod/package/publish.json"
+    dir=$(mod_dir "$mod")
+    spec="$dir/package/publish.json"
     if [ ! -f "$spec" ]; then
-        [ "$named" -gt 0 ] && die "$mod/package/publish.json missing - it names the categories per site."
+        [ "$named" -gt 0 ] && die "${spec#$root/} missing - it names the categories per site."
         note "  $mod: no package/publish.json, not published"
         continue
     fi
@@ -108,9 +110,9 @@ for mod in "${mods[@]}"; do
     [ "$wants" -eq 1 ] || continue
     # A version that bump never closed off would go out without its notes.
     grep -qE "^##[[:space:]]+$(printf '%s' "$version" | sed 's/\./\\./g')[[:space:]]*$" \
-        "$root/$mod/package/CHANGELOG.md" ||
-        die "$mod/package/CHANGELOG.md has no ## $version - run scripts/bump.sh $mod first."
-    [ -z "$(git -C "$root" status --porcelain -- "$mod")" ] || dirty+=("$mod")
+        "$dir/package/CHANGELOG.md" ||
+        die "${dir#$root/}/package/CHANGELOG.md has no ## $version - run scripts/bump.sh $mod first."
+    [ -z "$(git -C "$root" status --porcelain -- "$dir")" ] || dirty+=("$mod")
 done
 
 if [ ${#uploads[@]} -eq 0 ]; then

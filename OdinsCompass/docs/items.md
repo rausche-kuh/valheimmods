@@ -54,7 +54,7 @@ at runtime and a shared instance is copied by hand, with a warning:
   menu database holds - if it lacks every wearable, the compass simply cannot exist before a
   world loads, which nothing in the menu needs.
 - Set on the clone's `m_shared`: `m_name` (`$oc_compass1`..), `m_description`, `m_icons[0]` (a
-  sprite from `assets/icons/`, loaded like OdinsMissingPatch's `PanelButtons.Icon` through
+  sprite from `assets/icons/`, loaded like the OdinsMissingPatch family's `UiAssets.Icon` through
   `ImageConversion.LoadImage` found by reflection), `m_maxQuality = 1`, `m_equipStatusEffect` =
   the compass status effect (`guidance.md`), `m_itemType` stays `Utility`.
 - Add the clone to `ObjectDB.m_items` and call the private `UpdateRegisters()` (publicized), and

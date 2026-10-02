@@ -1,0 +1,9 @@
+{
+    "name": "ItemMagnet",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/rausche-kuh/valheimmods",
+    "description": "Hold a key and every item lying around flies to your feet, out of combat only. Cleans up after a fight, never hauls",
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2350"
+    ]
+}

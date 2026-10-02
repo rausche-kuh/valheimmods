@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    The Odin's Missing Patch family: every mod in a subfolder here also compiles Common/src/, the
+    tweak framework and the helpers several of them share. Each DLL carries its own copy, so no
+    member needs another at runtime and a change in Common reaches a mod only with its next
+    release. Everything else comes from the repo's own Directory.Build.props, imported first.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <PropertyGroup>
+    <!-- One namespace for the family, so Common's types need no using in any member. -->
+    <RootNamespace>OdinsMissingPatch</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Common\src\**\*.cs" Link="Common\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

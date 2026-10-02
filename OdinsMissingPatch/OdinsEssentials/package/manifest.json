@@ -1,0 +1,9 @@
+{
+    "name": "OdinsEssentials",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/rausche-kuh/valheimmods",
+    "description": "Bigger station ranges, fires that stay lit, repair everything at once, instant Rested, fast portals, no stamina for chores out of combat, equip while running. Each tweak on its own switch",
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2350"
+    ]
+}

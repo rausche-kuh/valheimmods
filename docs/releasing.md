@@ -1,7 +1,52 @@
 # Releasing
 
-`bump`, `package` and `publish`: from a finished change to a version on Thunderstore and Hexium.
-The usual release is `bump`, commit, `publish`. The overview is [scripts/README.md](../scripts/README.md).
+`status`, `release`, `bump`, `package` and `publish`: from a finished change to a version on
+Thunderstore and Hexium. The usual release is `status`, then `release`, which bumps, commits and
+publishes; `bump`, commit, `publish` by hand does the same for one mod. The overview is
+[scripts/README.md](../scripts/README.md).
+
+**A mod's last release is the commit that set its current version** (the bump commit) - no tags,
+so every checkout works it out the same way. A bump only counts once it is committed.
+
+## `status` — what is waiting (Linux only)
+
+```bash
+./scripts/status.sh [mod ...]
+```
+
+Per mod and pack, compares the working tree with its last release and names one state:
+
+| State | Means | Release? |
+| --- | --- | --- |
+| `release` | `## Unreleased` has notes | yes |
+| `translations` | only `assets/translations.csv` changed; names the languages whose words differ | yes, a patch |
+| `unnoted` | shipped files (`src/` minus `src/Dev/`, `assets/`, the page, the icon) changed without a note | only if it matters - write the note first |
+| `shared` | only the family's `Common/` changed | no, it ships with the next real release |
+| `new` | no commit holds its current version yet | yes, once it has notes |
+| `clean` | nothing | no |
+
+For a pack it also lists each member whose newest version is past the one the pack names. That
+needs no release: a mod manager updates members on its own, and the pack catches up the next time
+it is released.
+
+## `release` — release what is due (Linux only)
+
+```bash
+./scripts/release.sh [-y] [mod ...]
+```
+
+Picks every mod that is `release`, `translations` or `new` with notes (naming an `unnoted` or
+`shared` mod stops with a reminder to write its note), asks once, then per mod:
+
+- `translations`: writes `- Translations updated: <languages>.` under `## Unreleased`.
+- `new`: keeps the version it was made with; `## Unreleased` becomes that version.
+- otherwise runs `bump`: minor when a note starts with "Added", patch otherwise (with `-y`; else
+  `bump` asks, with that as the suggestion).
+- a pack: every member it names from this repo is set to the member's current version first.
+
+Then it commits only the version files, manifests and changelogs as `Release <Mod> <version>, ...`
+(asking first) and hands the mods to `publish`, which asks again before uploading. Members come
+before packs throughout.
 
 ## `bump` — raise a version for a release
 
@@ -17,7 +62,8 @@ Asks which mod and which part of `major.minor.patch` to raise — both menus are
 as arguments — then shows the new version, what the release would ship and waits for a `y`. On
 confirmation it writes all three places a version lives:
 
-- the `VERSION` const in the mod's plugin source, which is the source of truth,
+- the `VERSION` const in the mod's plugin source, which is the source of truth (a pack has no
+  source: its manifest's `version_number` is),
 - `version_number` in its `package/manifest.json`,
 - the `## Unreleased` heading in its `package/CHANGELOG.md`, which becomes `## <version>`.
 
@@ -38,7 +84,8 @@ is built, committed or published — commit, then run `publish`.
 Reads each mod's `VERSION` const from its `src/`, stamps it into its `package/manifest.json`,
 builds Release, and writes a flat `dist/<Mod>-<version>.zip` containing the DLL, the assets and the
 mod's `package/` folder — `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md`. On Linux it
-uses `zip` if present, otherwise `python3`.
+uses `zip` if present, otherwise `python3`. A pack's zip is its `package/` files alone; its
+manifest's `dependencies` name the members, `rauschekuh-<Member>-<version>`.
 
 The shipped README is `<Mod>/package/README.md`, and it is the Thunderstore page: what the mod does,
 how to install it, multiplayer and compatibility notes. Nothing about building from source and no
@@ -78,8 +125,9 @@ rename rather than overwrite when an old image should stay as it was, or use a t
 Asks both sites whether each mod's current `VERSION` is already up
 (`/api/experimental/package/rauschekuh/<Mod>/<version>/`), then packages and uploads only what is
 missing — a version that is out is never built or sent again, and after a half failed run the next
-one sends just the rest. The usual release is `bump`, commit, `publish`; with no mod names it
-checks every mod, so a bare `./scripts/publish.sh` is also "is everything out?".
+one sends just the rest. With no mod names it checks every mod, so a bare `./scripts/publish.sh`
+is also "is everything out?". Packs go last: Thunderstore only takes a pack whose dependencies are
+already up. A pack's Thunderstore category is `modpacks`.
 
 Before anything is sent it refuses a version whose `## <version>` heading is missing from the
 changelog (`bump` was not run), checks the Thunderstore categories against the site's list, warns

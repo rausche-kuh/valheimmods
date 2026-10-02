@@ -1,33 +1,39 @@
 # Architecture
 
-What each file under `src/` and `assets/` holds. `CLAUDE.md` has the one-line map; the area docs
-hold the conventions and game facts behind each piece.
+What the family shares: the build that compiles `Common/src/` into every member, and each file
+there. A member describes its own `src/` and `assets/` in `<Member>/docs/architecture.md`.
+
+## The build
+
+`OdinsMissingPatch/Directory.Build.props` imports the repo's own `Directory.Build.props` first,
+then adds `Common/src/**/*.cs` to every project below it (linked as `Common\...`) and sets
+`RootNamespace` to `OdinsMissingPatch`. So:
+
+- **Every DLL carries its own copy of Common.** No member depends on another at runtime, and
+  `internal` types with the same full name in two loaded members never meet. Statics such as
+  `TweakHost.Log` are per member.
+- **A change in Common reaches a mod only when that mod is released again.** It never forces a
+  release on its own: `scripts/status.sh` lists it as `shared`. When it changes what players see,
+  add a changelog note to each member it matters to, and those are released.
+- **Common is compiled whole into every member**, used or not. A Common patch class therefore
+  must not apply in a member that does not use it: it carries `[Always]` (`Translations`) or
+  `[Serves(typeof(Helper))]`, which only applies when a tweak lists the helper in `Uses`.
+- **One namespace, `OdinsMissingPatch`**, for Common and every member, so Common needs no `using`
+  and a member needs none for Common.
+- The pack itself (`OdinsMissingPatch/package/`) has no csproj; the scripts treat a directory with
+  `package/manifest.json` and no project as a pack (see `docs/releasing.md` at the repo root).
+
+## Common/src
 
 | Path | What |
 | --- | --- |
-| `src/OdinsMissingPatch.cs` | BepInEx entry point: binds every tweak's config, then patches all. |
-| `src/Tweak.cs` | The base class: the section, the `Enabled` switch, `On` (wanted and patched), `BindMultiplier`, `BindList`, `OnSettingChanged`. |
-| `src/Patcher.cs` | Applies the patches of the tweaks that are on, class by class; a failed class switches off the tweaks it serves. The `Serves`, `Always` and `LoadHook` attributes. |
-| `src/Tweaks/<Name>.cs` | One quality of life change, with its `[HarmonyPatch]` classes nested inside it. |
-| `src/NearbyChests.cs` | Shared by the chest tweaks: the registry of loaded containers, the in-reach rule, `Claim`, the "reach" that widens the backpack, the per-chest opt-out flag and its Nearby use switch. |
-| `src/ChestFavorites.cs` | The kinds of item a chest is marked to take, on its ZDO: read by QuickStack and ChestButtons, set by an Alt-click in the chest's grid, a yellow amount on a marked slot, listed in the Clear favourites button and its tooltip. |
-| `src/ChestGlow.cs` | The golden pulse plus floating text on a chest (`ChestGlow.Flash`). |
-| `src/Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut`, read through `ZInput`. |
-| `src/PanelButtons.cs` | The inventory screen's buttons and their layout: icon and text buttons cut from the chest panel's Take all button, registered by their owners, placed once per frame in a column beside each panel or in the vanilla spots, and the switch that hides the game's Take all and Stack all. |
-| `src/Stash.cs` | Putting the backpack away: what may leave it, which chest takes which kind, the move into a chest; and `TopUp`, filling existing stacks without opening new ones. Shared by QuickStack and ChestButtons. |
-| `src/SharedSettings.cs` | The settings several tweaks read, in the `General` section: `ChestRange`, `KeepHotbar`, and the danger settings `ThreatRadius`, `EnragedEnemies`, `BossFights`. |
-| `src/Danger.cs` | Whether the local player is in danger - a hostile near, an enemy coming for them, a boss bar - for CombatStamina and ItemMagnet; the enraged-report patch. |
-| `src/MovedMarker.cs` | The item magnet's anti-hauling mark on a drop's ZDO: set on pulled and player-dropped items, carried over when the game merges stacks. |
-| `src/Palette.cs` | The colours the mod draws with, one per meaning. |
-| `src/PinSweep.cs` | The two-sweep "is it still there?" check for pins near the player, shared by DeathPins and AutoPins' mined-out check. |
-| `src/InventorySorter.cs` | Merge-and-sort of an `Inventory` in place, from a given row down, around items a caller keeps. |
-| `src/MaterialOrder.cs` | The crafting tree derived from `ObjectDB`: which family a material belongs to and how deep it lies. |
-| `src/UniversalPins.cs` | Map pins that belong to nobody (a fixed owner, an `OdinsMissingPatch_<category>` author): the identity, adding, the removed-pin record, and the patches that keep them through a table read and turn a claim into a tick. Used by AutoPins, SharedMapTable and PinLooks. |
-| `src/PinBroadcast.cs` | The routed RPCs that hand an auto pin to every player online the moment it is made, and that give a joining player everyone's pins once. Sends for AutoPins, receives into it. |
-| `src/Translations.cs` | Hands `assets/translations.csv` to the game's localization on every language setup. |
-| `src/Dev/MapCommands.cs` | Debug only: `omp_locations [filter]`, `omp_pins`, `omp_pins_forget`, `omp_pins_clear` — see [`map-pins.md`](map-pins.md). |
-| `src/Dev/CollateralTest.cs` | Debug only: `omp_cd <scene>` spawns a troll or boss with peers, `omp_cd_info`, `omp_cd_clear`; every collateral hit and loot decision shown top left. |
-| `src/Dev/MagnetCommands.cs` | Debug only: `omp_magnet_scatter`, `omp_magnet_probe` (loaded drops per ring, for choosing `MaxRadius`), `omp_magnet_unmark` — see [`item-magnet.md`](item-magnet.md). |
-| `src/Dev/MarkWards.cs` | Debug only: wards stand in for other players so `PlayerMarks` can be tried alone; `omp_marks_wards` switches it. |
-| `assets/icons/` | The button icons, 64px white-on-transparent PNGs, and the coloured `map_*` pin icons PinLooks draws, shipped beside the DLL. Gale flattens the folder on install, so `PanelButtons.Icon` looks in `icons/` and then beside the DLL. |
-| `assets/translations.csv` | Every word the mod shows, one row per `$omp_` token, one column per language |
+| `TweakHost.cs` | `Start`, all a plugin's `Awake` calls: binds the shared settings, maps the patch classes, binds every tweak, runs `LegacyConfig`, applies the patches, logs which tweaks are on. Holds the member's `Log` and `Plugin` (for coroutines). |
+| `Tweak.cs` | The base class: the section, the `Enabled` switch, `On` (wanted and patched), `Uses` (the Common helpers whose patches it needs), `BindMultiplier`, `BindList`, `OnSettingChanged`. |
+| `Patcher.cs` | Applies the patches of the tweaks that are on, class by class; a failed class switches off the tweaks it serves. The `Serves`, `Always` and `LoadHook` attributes; a `Serves` naming a helper type resolves through `Tweak.Uses`, and a class serving no tweak of the member is dropped. |
+| `LegacyConfig.cs` | For every section the member's file did not have yet, copies every setting whose section and key `rauschekuh.odinsmissingpatch.cfg` (the all-in-one mod's file) also has. |
+| `Translations.cs` | Hands the member's `translations.csv` to the game's localization on every language setup; a member without one is skipped quietly. |
+| `Danger.cs` | Whether the local player is in danger - a hostile near, an enemy coming for them, a boss bar. `Bind` puts its three settings in the calling member's `General`; the enraged-report patch serves tweaks that list `Danger` in `Uses`. |
+| `Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut`, read through `ZInput`. |
+| `Palette.cs` | The colours the family draws with, one per meaning. |
+| `UiAssets.cs` | The PNG icons shipped beside a member's DLL (`icons/` or flattened beside it, as Gale installs them), loaded once each through `ImageConversion` by reflection; the inventory slots' tooltip prefab for a control made without one. |
+| `FavoriteMark.cs` | The favourite mark on a stack (`OMP_Favorite` in the item's custom data): set by OdinsReach's quick stack, read by OdinsEssentials' auto shield. |

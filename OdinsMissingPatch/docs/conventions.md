@@ -1,7 +1,20 @@
 # Conventions
 
-How a tweak is written, beyond the four rules in the mod's `CLAUDE.md` that always apply. The
-subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `item-order.md`.
+How a tweak is written in any member of the family, beyond the rules in the family's
+`CLAUDE.md` that always apply. A member's own docs add rules on top (OdinsReach: `chests.md`,
+`inventory-ui.md`, `item-order.md`).
+
+## A member
+
+- The plugin class holds the GUID, name, `VERSION`, its `Tweaks` list and an `Awake` that calls
+  `TweakHost.Start`, passing a binder for the settings several of its tweaks read
+  (`SharedSettings.Bind` in OdinsReach, `Danger.Bind` in OdinsEssentials and ItemMagnet).
+- Each member writes its own config file, `BepInEx/config/rauschekuh.<name>.cfg` after its GUID.
+  For every section its file does not have yet (all of them on a first start) `LegacyConfig`
+  copies every setting whose section and key the old `rauschekuh.odinsmissingpatch.cfg` also has, so **a tweak's `Section` and keys are
+  saved data**: renaming one drops a player's setting.
+- Settings more than one tweak of a member reads go in that member's `General` section, never in
+  one of the tweaks. A setting two members read (the danger settings) is bound by each of them.
 
 ## Patching
 
@@ -15,6 +28,9 @@ subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `
   failure should only be logged (a hover line, a tint). `[Always]` is for the mod's words and dev
   commands. A class with neither is applied always and warned about in the log - add the
   `Serves` when a tweak starts to use a shared patch.
+- A patch in `Common/` cannot name a tweak - every member has its own. It names its helper
+  instead, `[Serves(typeof(Danger))]`, and serves each tweak whose `Uses` lists that helper
+  (`CombatStamina`, `ItemMagnet`). In a member none of whose tweaks uses it, it is never applied.
 - `[LoadHook]` marks a class whose target runs once per object as it loads (`Container.Awake`,
   `MapTable.Start`, `Game.Start`): patched mid game it would miss everything already loaded. A
   tweak switched on mid game waits for the next launch while one of its load hooks is not in;
@@ -69,12 +85,12 @@ subsystem docs add their own rules on top: see `chests.md`, `inventory-ui.md`, `
   tweak's predicate folded in, rather than pulling items out of the list around the original: a
   throw inside the original would leave the pulled items nowhere, and this is the death path.
 - A tweak that needs a Debug-only hook (`PlayerMarks` marking wards so it can be tried alone) is
-  declared `partial` and calls a `static partial void` method; the body lives in `src/Dev/` in a
+  declared `partial` and calls a `static partial void` method; the body lives in the member's
+  `src/Dev/` in a
   second `partial` part of the same class. A Release build has no body, so the compiler drops the
   call along with it — no flag, no `#if`, nothing of the dev code ships.
-- A colour the mod draws itself comes from `Palette` (`src/Palette.cs`), one colour per meaning,
-  and those follow the game's UI palette so they fit in. Settings more than one tweak reads live in
-  `SharedSettings` (the `General` section), not in one of the tweaks. The game has no palette in
+- A colour a member draws itself comes from `Palette` (`Common/src/Palette.cs`), one colour per
+  meaning, and those follow the game's UI palette so they fit in. The game has no palette in
   code (the text markup uses the named `orange` and `yellow`); these were read from the
   `Image` and text colours in `_GameMain`'s bundle on 2026-09-24. Accents: ornament and
   separator orange #FF8E00, selection amber #FFA300, bar and selection gold #FFD800, the map's

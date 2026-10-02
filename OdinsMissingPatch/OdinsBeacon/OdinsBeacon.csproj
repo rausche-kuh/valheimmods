@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Everything shared lives in ../Directory.Build.props and the repo's own above it. -->
+  <PropertyGroup>
+    <AssemblyName>OdinsBeacon</AssemblyName>
+  </PropertyGroup>
+
+</Project>

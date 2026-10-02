@@ -1,0 +1,12 @@
+key,English,German,Russian,Chinese,Spanish,French,Portuguese_Brazilian,Polish,Italian,Japanese,Ukrainian
+// Every word this mod puts on screen. One column per language, English first: a cell left empty
+// falls back to English, and a language without a column falls back to English as a whole, so a
+// new language is a new column here and nothing else. $1 and $2 are filled in by the game - a
+// count or an item name - and may stand anywhere in the sentence. A row starting with // is a
+// comment. Keep commas inside "quotes", and write "" for a quote inside a value.
+//
+// A language column is headed exactly as Valheim names it, and the header is the one line the
+// game splits on plain commas, so a name there may never be quoted.
+//
+// The magnet refusing to start while something hostile is near
+omp_magnet_danger,Not while enemies are near,Nicht mit Feinden in der Nähe,Не рядом с врагами,敌人在附近时不可用,No con enemigos cerca,Pas avec des ennemis proches,Não com inimigos por perto,Nie przy wrogach w pobliżu,Non con nemici vicini,敵が近くにいる間は不可,Не поруч із ворогами

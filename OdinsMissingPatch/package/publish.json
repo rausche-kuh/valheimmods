@@ -1,4 +1,4 @@
 {
-    "thunderstore": ["client-side", "tweaks", "misc", "deep-north-update", "ai-generated"],
+    "thunderstore": ["modpacks", "client-side", "tweaks", "deep-north-update", "ai-generated"],
     "hexium": ["Client-only"]
 }

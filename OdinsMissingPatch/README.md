@@ -1,33 +1,40 @@
-# OdinsMissingPatch
+# The Odin's Missing Patch family
 
-A collection of small quality of life changes, one config section each.
-[`package/README.md`](package/README.md) is the Thunderstore page and describes what the mod
-actually does.
+Odin's Missing Patch, split into mods that stand on their own: `OdinsEssentials`, `OdinsReach`,
+`OdinsPins`, `ItemMagnet` and `OdinsBeacon`, bundled by the modpack in `package/`, plus
+`ThisIsValheim` and `CollateralDamage`, which share the code but not the pack. Each member's `package/README.md` is its
+Thunderstore page.
 
 | Path | What |
 | --- | --- |
-| `src/OdinsMissingPatch.cs` | The BepInEx entry point: binds the config, applies the patches. |
-| `src/Tweak.cs` | What a tweak is — its config section, its Enabled switch, its multipliers. |
-| `src/Tweaks/` | One file per quality of life change, patches included. |
-| `src/Dev/` | Console commands for testing, compiled into Debug builds only. |
-| `docs/` | The notes behind the code: `architecture.md` (every source file), `tweaks.md` (what each tweak does), `conventions.md`, one file per subsystem, `references.md`. `CLAUDE.md` indexes them. |
-| `package/` | What Thunderstore gets: `manifest.json`, `icon.png`, `README.md`, `CHANGELOG.md`. |
+| `Directory.Build.props` | Imports the repo's build and compiles `Common/src/` into every member. |
+| `Common/src/` | The tweak framework and shared helpers; each DLL carries its own copy. |
+| `<Member>/` | One mod: `src/<Member>.cs` (plugin, `Tweaks` list), `src/Tweaks/`, `src/Dev/`, `assets/`, `package/`, `docs/`. |
+| `package/` | The modpack: `manifest.json` (its `dependencies` are the members), page, changelog, icon. |
+| `docs/` | Family docs: architecture of Common, conventions, translations, references. |
 
 ## Adding a tweak
 
-Drop a `src/Tweaks/<Name>.cs` holding an `internal sealed class <Name> : Tweak` with a private
-constructor and a `static readonly <Name> Instance`, give it a `Section`, a `Summary`, a `Bind`
-that binds its settings, and nest its `[HarmonyPatch]` classes inside it. Then list
-`<Name>.Instance` in `Tweaks` in `src/OdinsMissingPatch.cs` — that is the whole registration.
+Drop `<Member>/src/Tweaks/<Name>.cs` holding an `internal sealed class <Name> : Tweak` with a
+private constructor and a `static readonly <Name> Instance`, give it a `Section`, a `Summary`, a
+`Bind`, and nest its `[HarmonyPatch]` classes inside it. List `<Name>.Instance` in `Tweaks` in
+`<Member>/src/<Member>.cs`.
 
 ## Build
 
 ```bash
-./scripts/setup.sh                        # once, and after every Valheim update
-./scripts/deploy.sh OdinsMissingPatch     # build + install into your profile
-./scripts/package.sh OdinsMissingPatch    # dist/OdinsMissingPatch-<version>.zip
+./scripts/deploy.sh OdinsReach        # one member, built and installed into your profile
+./scripts/deploy.sh                   # every mod in the repo; the pack only clears its old DLL
+dotnet build OdinsMissingPatch/OdinsReach/OdinsReach.csproj
 ```
 
-`VERSION` in `src/OdinsMissingPatch.cs` is the version — `package` stamps it into
-`package/manifest.json`. See [scripts/README.md](../scripts/README.md) for the full workflow on
-Windows and Linux.
+## Release
+
+```bash
+./scripts/status.sh                   # what each member has waiting since its last release
+./scripts/release.sh                  # notes for translation changes, bump, commit, publish
+```
+
+A change in `Common/` alone never forces a release; it goes out with each member's next one.
+The pack needs a release only when members join or leave — mod managers update members by
+themselves. Details in [docs/releasing.md](../docs/releasing.md).

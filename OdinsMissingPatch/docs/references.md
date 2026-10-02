@@ -2,7 +2,16 @@
 
 Other people's mods that solve the same ground, kept in `~/Documents/Code/test/othervalheimmods/`.
 Read them before changing a tweak they cover; copy nothing out of them (see the root `CLAUDE.md`
-for the licences).
+for the licences). The notes predate the split of the family; which member each one concerns:
+
+| Checkout | Tweaks | Member |
+| --- | --- | --- |
+| `ValheimMods` (Crystal) | `Ranges`, `FastPortals`, `KeepGearOnDeath` | OdinsEssentials |
+| `Digitalroot.Valheim.EternalFire` | `EndlessFuel` | OdinsEssentials |
+| `VentureValheim` | `AreaRepair` | OdinsEssentials |
+| `cartur-safe-stamina` | `CombatStamina` | OdinsEssentials |
+| `SmartCraft-Storage` | `NearbyCrafting`, `QuickStack`, `StationRefill`; its repair loop: `AutoRepair` | OdinsReach; OdinsEssentials |
+| Map tables and auto pins (below) | `SharedMapTable`, `AutoPins`, `PinLooks` | OdinsPins |
 
 `~/Documents/Code/test/othervalheimmods/ValheimMods` is Crystal Ferrai's mod collection (Apache-2.0, published on
 Thunderstore as `Crystal/*` and kept as a reference here — a checkout, not a dependency, and none
@@ -131,7 +140,7 @@ Jötunn and syncs its gameplay settings from the server; this mod does neither.
 
 ## Map tables and auto pins
 
-Three checkouts and one scratch read cover the ground of [`map-pins.md`](map-pins.md); none is a
+Three checkouts and one scratch read cover the ground of [`map-pins.md`](../OdinsPins/docs/map-pins.md); none is a
 dependency and none of their code comes in. What each one settled for the plan:
 
 `~/Documents/Code/test/othervalheimmods/ValheimServersideQoL` (Thunderstore `ServersideQoL/*`, a

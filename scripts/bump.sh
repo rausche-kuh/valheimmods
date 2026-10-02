@@ -3,7 +3,7 @@
 # minor or patch - from a menu, or pass them as arguments. Updates all three places a version
 # lives: the VERSION const in the mod's plugin source (the source of truth), version_number in
 # its package/manifest.json, and the ## Unreleased heading in its package/CHANGELOG.md, which
-# becomes the heading for the new version.
+# becomes the heading for the new version. A pack has no source: its manifest is the version.
 #
 # Nothing is written until you confirm, and nothing is built, committed or published - run
 # scripts/package.sh afterwards for the zip.
@@ -25,14 +25,6 @@ while [ $# -gt 0 ]; do
         *)                  [ -z "$mod" ] || die "only one mod at a time"; mod=$1; shift ;;
     esac
 done
-
-# The source file holding the VERSION const - where the bump has to be written.
-version_file() {
-    local f
-    f=$(grep -rlE 'VERSION[[:space:]]*=[[:space:]]*"[^"]+"' "$root/$1/src" 2>/dev/null | head -1)
-    [ -n "$f" ] || die "could not find VERSION in $1/src"
-    printf '%s\n' "$f"
-}
 
 # major.minor.patch, bumped by kind - a minor bump zeroes the patch, a major one both.
 bumped() {
@@ -88,10 +80,11 @@ fi
 
 current=$(mod_version "$mod")
 file=$(version_file "$mod")
-manifest="$root/$mod/package/manifest.json"
-changelog="$root/$mod/package/CHANGELOG.md"
-[ -f "$manifest" ]  || die "$mod/package/manifest.json missing"
-[ -f "$changelog" ] || die "$mod/package/CHANGELOG.md missing"
+dir=$(mod_dir "$mod")
+manifest="$dir/package/manifest.json"
+changelog="$dir/package/CHANGELOG.md"
+[ -f "$manifest" ]  || die "${manifest#$root/} missing"
+[ -f "$changelog" ] || die "${changelog#$root/} missing"
 
 if [ -z "$kind" ]; then
     labels=()
@@ -112,7 +105,7 @@ unreleased=$(awk '
 ' "$changelog")
 
 printf '\n\033[36m%s\033[0m %s -> \033[32m%s\033[0m (%s)\n' "$mod" "$current" "$next" "$kind"
-info "  ${file#$root/}"
+[ "$file" = "$manifest" ] || info "  ${file#$root/}"
 info "  ${manifest#$root/}"
 info "  ${changelog#$root/}   ## Unreleased -> ## $next"
 
@@ -120,13 +113,13 @@ if [ -n "$(printf '%s' "$unreleased" | tr -d '[:space:]')" ]; then
     printf '\n%s\n' "$unreleased" | sed -E '/^[[:space:]]*$/d;s/^/  /'
 else
     printf '\n' >&2
-    note "$mod/package/CHANGELOG.md has no ## Unreleased section with anything under it -"
+    note "${changelog#$root/} has no ## Unreleased section with anything under it -"
     note 'the release would go out with no notes, and the heading would stay as it is.'
 fi
 
 confirm "Write $next?" || { info 'Nothing written.'; exit 0; }
 
-sed -i -E "s;(VERSION[[:space:]]*=[[:space:]]*\")[^\"]+;\1$next;" "$file"
+[ "$file" = "$manifest" ] || sed -i -E "s;(VERSION[[:space:]]*=[[:space:]]*\")[^\"]+;\1$next;" "$file"
 sed -i -E "s;(\"version_number\"[[:space:]]*:[[:space:]]*\")[^\"]+;\1$next;" "$manifest"
 # Only the first Unreleased heading - an older one further down would be a mistake, not a target.
 awk -v v="$next" '

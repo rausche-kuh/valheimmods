@@ -1,8 +1,13 @@
 # The scripts in detail
 
 Every flag, the paths `setup` searches, and what to do when something goes wrong. The overview is
-[scripts/README.md](../scripts/README.md); releasing (`bump`, `package`, `publish`) is
-[releasing.md](releasing.md).
+[scripts/README.md](../scripts/README.md); releasing (`status`, `release`, `bump`, `package`,
+`publish`) is [releasing.md](releasing.md).
+
+Every script finds a mod by its name: a directory `<Name>/<Name>.csproj` at the repo root or one
+level down (a family member such as `OdinsMissingPatch/OdinsReach/`), or a pack, a directory with
+`package/manifest.json` and no csproj. `decompiled/`, `lib/` and `dist/` are never searched.
+With no names, a script acts on every mod, then every pack.
 
 ## `setup` — find the game, stage the references
 
@@ -50,6 +55,10 @@ Builds (Release by default; `Debug` also compiles each mod's `src/Dev/` test hel
 `manifest.json` and its `icon.png` into the profile. The profile override is for a one-off install
 against a second profile without re-running `setup`.
 
+A pack builds nothing and installs nothing (a mod manager installs it through its members). It
+only deletes a `<pack>.dll` left in its plugin folder from before it was a pack: beside the
+members, that old DLL would patch everything twice.
+
 ## `decompile` — read the game's API
 
 ```powershell
@@ -81,7 +90,7 @@ Note that `Assembly-CSharp.dll` is a ~23 KB stub — the game's code is in `asse
 ./scripts/clean.sh [--deployed] [--all] [mod ...]
 ```
 
-Removes each mod's `bin/` and `obj/` plus `dist/`. `-Deployed` / `--deployed` also removes the mods
+Removes each mod's `bin/` and `obj/` plus `dist/` (a pack has neither). `-Deployed` / `--deployed` also removes the mods
 from the profile they were installed into, and `-All` / `--all` also removes the shared `lib/`,
 `decompiled/` and `Valheim.props` — after that, `setup` has to run again before anything builds.
 
@@ -110,7 +119,7 @@ alive. Needs ImageMagick 7 (`magick`).
 | Installed plugin  | `<profile>/BepInEx/plugins/rauschekuh-<mod>/`                                                                                 |
 | BepInEx log       | `<profile>/BepInEx/LogOutput.log`                                                                                             |
 
-`lib/`, `decompiled/`, `dist/`, every `<mod>/bin/`, `<mod>/obj/` and `Valheim.props` are generated
+`lib/`, `decompiled/`, `dist/`, every mod's `bin/` and `obj/` and `Valheim.props` are generated
 and gitignored. Game assemblies must never be committed.
 
 ## When it goes wrong

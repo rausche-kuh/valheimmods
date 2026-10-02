@@ -1,0 +1,9 @@
+{
+    "name": "CollateralDamage",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/rausche-kuh/valheimmods",
+    "description": "Trolls and bosses smash the creatures in their way: a troll's club hits greydwarfs, Eikthyr's lightning the dwarfs in his arena, Yagluth's meteors fulings and lox",
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2350"
+    ]
+}

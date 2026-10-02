@@ -31,8 +31,10 @@ function Remove-Generated([string]$Path) {
 
 Write-Host "Cleaning $($Mods -join ', ')..." -ForegroundColor Cyan
 foreach ($mod in $Mods) {
-    Remove-Generated (Join-Path $Root "$mod\bin")
-    Remove-Generated (Join-Path $Root "$mod\obj")
+    if (Test-Pack $mod) { continue }
+    $dir = Get-ModDir $mod
+    Remove-Generated (Join-Path $dir 'bin')
+    Remove-Generated (Join-Path $dir 'obj')
 }
 Remove-Generated (Join-Path $Root 'dist')
 

@@ -1,14 +1,20 @@
 # The words on screen
 
-Everything the mod puts in front of a player goes through the game's own localization, so the mod
-speaks whatever language Valheim is set to. `assets/translations.csv` holds the words,
-`src/Translations.cs` hands the file to the game, and a call site holds nothing but a token.
+Everything a member of the family puts in front of a player goes through the game's own
+localization, so it speaks whatever language Valheim is set to. Each member's own
+`assets/translations.csv` holds its words, `Common/src/Translations.cs` (compiled into every
+member) hands that file to the game, and a call site holds nothing but a token.
 
 ## Conventions
 
-- **A call site passes a `$omp_` token, never a sentence.** Tokens are namespaced with the mod's
-  initials so nothing can collide with the game's own words or another mod's.
-- **Every token lives in `assets/translations.csv`**, which the build copies next to the DLL. The
+- **A call site passes a `$omp_` token, never a sentence.** Every member keeps the `omp_` prefix
+  (the family's initials), so nothing collides with the game's words or another mod's. Two members
+  may load the same token only with the same words.
+- **One file per member, holding only its own tokens.** A translation change then touches one mod
+  and one release (`scripts/status.sh` reports it as `translations`). `Common/` holds no player
+  text at all. A member without words ships no file; `Translations` only logs that at debug level.
+- **Every token lives in the member's `assets/translations.csv`**, which the build copies next to
+  the DLL. The
   first column is the key (without the `$`), the second is English, and each further column is a
   language named exactly as Valheim names it (`German`, `Portuguese_Brazilian`, ...). Adding a
   language is adding a column and nothing else — no code change, no new file. A row whose key
@@ -72,7 +78,9 @@ speaks whatever language Valheim is set to. `assets/translations.csv` holds the 
 - `Localization.SetupLanguage(string)` is the hook: the constructor calls it for English, startup
   calls it again for the player's language, and `SetLanguage` calls `Clear()` (wiping every
   translation and the lookup cache) and then it. A postfix on it therefore has to re-add the mod's
-  words every time, which is exactly what `Translations.Load` does.
+  words every time, which is exactly what `Translations.Load` does - once per member, each with
+  its own postfix. **Verify:** that `LoadCSV` adds to the table rather than replacing it, which
+  several members loading in turn relies on (the game's own files load the same way).
 - `Localization.LoadCSV(TextAsset, language)` is public, and `AddWord` is private — the CSV is the
   way in. **A language the file has no column for loads nothing at all**, tokens included, so
   `Translations` checks the header and asks for English instead when a column is missing. Within a
@@ -82,7 +90,7 @@ speaks whatever language Valheim is set to. `assets/translations.csv` holds the 
   string, so `_` is safe in a token and a value may hold anything. An unknown token shows as
   `[omp_...]` — that, in game, means the CSV did not load.
 - `TextAsset` cannot be named from a `net472` build: its module is built against netstandard 2.1
-  and the reference fails with CS1705, the same wall `PanelButtons.LoadPng` hits. `Translations`
+  and the reference fails with CS1705, the same wall `UiAssets.LoadPng` hits. `Translations`
   builds one and calls `LoadCSV` by reflection instead.
 - Valheim ships 24 languages; the names are in `Localization.LocalizationConstants`, and
   `BCP47ToLanguage` in the same class maps a locale to one.

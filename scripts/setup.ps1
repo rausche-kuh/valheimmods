@@ -107,7 +107,7 @@ Write-Host ("lib/    : {0} assemblies" -f (Get-ChildItem $lib -Filter *.dll).Cou
 "@ | Set-Content (Join-Path $Root 'Valheim.props') -Encoding UTF8
 
 Push-Location $Root
-try { foreach ($mod in Get-Mods) { dotnet restore "$mod\$mod.csproj" } } finally { Pop-Location }
+try { foreach ($mod in Get-Mods) { if (-not (Test-Pack $mod)) { dotnet restore (Join-Path (Get-ModDir $mod) "$mod.csproj") } } } finally { Pop-Location }
 
 Write-Host ''
 Write-Host 'Setup done. Next: scripts\deploy.ps1 (build + install), scripts\decompile.ps1 (game source).' -ForegroundColor Green

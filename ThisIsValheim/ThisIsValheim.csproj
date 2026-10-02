@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <!-- Everything shared lives in ../Directory.Build.props. -->
-  <PropertyGroup>
-    <AssemblyName>ThisIsValheim</AssemblyName>
-    <RootNamespace>ThisIsValheim</RootNamespace>
-  </PropertyGroup>
-
-</Project>

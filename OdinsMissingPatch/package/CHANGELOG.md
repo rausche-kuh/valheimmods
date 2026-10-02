@@ -2,50 +2,36 @@
 
 ## Unreleased
 
-- Added: build in water. The hammer and the pickaxe stay in your hand while you swim, and you
-  can take them out in deep water, so docks and piers no longer mean wading back to shore.
-  Weapons, shields and torches are still put away.
-- **Settings reorganised; changed values are not carried over.** Check the config file after
-  updating:
-  - Station range, comfort range and mist clear range are one tweak, **Ranges**, with one
-    multiplier each.
-  - Instant comfort and fireside healing are one tweak, **Resting** (`InstantRested`,
-    `HealthPerComfortLevel`, `RequireSitting`).
-  - Nearby fuel and add all are one tweak, **Station refill** (`SingleFromChests`, `AddAll`).
-  - The four chest ranges are one, `General.ChestRange`, and the three hotbar switches of quick
-    stack, chest buttons and inventory buttons are one, `General.KeepHotbar`.
-  - Combat stamina's `ThreatRadius`, `EnragedEnemies` and `BossFights` moved to `General`: they
-    now decide when you are in combat for the item magnet too.
-- Added: item magnet. Hold `Y` and your character rises into the Forsaken power pose, wreathed
-  in its fire, while every item lying around flies to your feet — from 10m after a second, and
-  further the longer you hold. It stops by itself once the last item in reach has landed. What
-  fits in your backpack is picked up, the rest piles up at your feet. It only works while nothing hostile is near or after you, and an item that was moved once
-  (pulled, or dropped by a player) is never pulled again, so it tidies up after a fight or a felled
-  forest but never carries a load for you. No cooldown, no stamina.
-- The "Nearby use: off" line on a chest's hover text is translated like the rest.
-- Quick stack: hold Shift while pressing the quick stack key to top up instead. Every stack of
-  food, meads and ammo you carry is filled up to its cap from the chests around you, nearest
-  first, and nothing you don't already carry is added. Each chest that gave something glows with
-  how much it gave. The modifier and the item types are in the Quick Stack settings.
-- The Stack nearby and Fill your stacks buttons name their quick stack key in their tooltips.
-- Auto repair: a station repairs the gear of the other stations of its group too — the forge
-  mends black forge gear, the workbench mends Galdr table gear — as long as that station is built
-  nearby and upgraded far enough. Works with the repair button as well. Turn
-  `RequireRealStation` off to let the workbench and forge repair everything, no other station
-  needed.
-
-- Added: collateral damage. A troll's swing and ground slam hit the greydwarfs in the way,
-  Eikthyr's lightning hits the dwarfs in the arena, Yagluth's meteors hit fulings and lox, and
-  so on for every boss but the Queen. Nothing hit this way fights back or picks a new target,
-  bosses never hit what they spawned, and a creature killed this way drops nothing unless you did at least half of
-  the work. Every player needs the mod for it to apply everywhere.
-- A tweak switched off when the game starts no longer touches the game at all, so switching off
-  one that clashes with another mod (and restarting) lets both run. A few tweaks switched on
-  mid game now wait for the next start; their `Enabled` setting says so.
-- Tried to mitigate broken tweaks by catching and disabling only whats broken on a game update
-- Pin looks: Burial Chambers, Troll Caves and Winding Tunnels get icons of their own instead of
-  the plain door, fuling villages and tar pits get icons too, and every map icon is now drawn at
-  the same size.
+- **Odin's Missing Patch is now a pack.** Its tweaks live in five mods, each with its own page,
+  that you can also install on their own. Updating the pack installs all five, so you keep every
+  tweak:
+  - **Odin's Essentials:** ranges, endless fuel, combat stamina, resting, fast portals, keep gear
+    on death, area repair, auto repair, power picker, equip while running, build in water, auto
+    shield, pocket upgrades.
+  - **Odin's Reach:** nearby crafting, quick stack, station refill, chest buttons, inventory
+    buttons.
+  - **Odin's Pins:** shared map table, auto pins, pin looks, death pins.
+  - **Item Magnet** and **Odin's Beacon** (the player marks).
+- **Settings:** each mod has its own config file now. On its first start it takes over every
+  setting of the old `rauschekuh.odinsmissingpatch.cfg` that kept its name. Merged settings start
+  at their defaults, so check these: station range, comfort range and mist clear range are one
+  tweak, **Ranges**, with one multiplier each; instant comfort and fireside healing are one,
+  **Resting**; nearby fuel and add all are one, **Station refill**; the four chest ranges are one,
+  `General.ChestRange`, and the three hotbar switches are one, `General.KeepHotbar`.
+- Added: item magnet. Hold `Y` and every item lying around flies to your feet, out of combat
+  only, and an item that was moved once is never pulled again. See the Item Magnet page.
+- Added: build in water. The hammer and the pickaxe stay in your hand while you swim.
+- Quick stack: hold Shift while pressing the quick stack key to top up your food, meads and ammo
+  from the chests around you instead.
+- Auto repair: a station repairs the gear of the other stations of its group too, as long as that
+  station is built nearby and upgraded far enough.
+- Pin looks: Burial Chambers, Troll Caves, Winding Tunnels, fuling villages and tar pits get icons
+  of their own, and every map icon is drawn at the same size.
+- A tweak switched off when the game starts no longer touches the game at all, and if a game
+  update breaks a tweak, only that tweak switches off.
+- Collateral damage, which was never released here, went to
+  [a mod of its own](https://thunderstore.io/c/valheim/p/rauschekuh/CollateralDamage/) instead: it
+  changes fights, so it is not in this pack.
 
 ## 0.3.2
 

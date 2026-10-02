@@ -1,0 +1,9 @@
+{
+    "name": "OdinsPins",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/rausche-kuh/valheimmods",
+    "description": "Auto pins for dungeons, ore and places, shared with every player online. Map tables sync on their own, biome coloured pins, death pins that clear with the grave",
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2350"
+    ]
+}

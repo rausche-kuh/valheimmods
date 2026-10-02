@@ -22,17 +22,18 @@ $ErrorActionPreference = 'Stop'
 $Mods = Resolve-Mods $Mods
 
 foreach ($mod in $Mods) {
+    $dir = Get-ModDir $mod
     $version = Get-ModVersion $mod
     Write-Host "Packaging $mod $version..." -ForegroundColor Cyan
 
-    $manifestPath = Join-Path $Root "$mod\package\manifest.json"
+    $manifestPath = Join-Path $dir 'package\manifest.json'
     # The Thunderstore page: package\README.md, not the mod's dev facing README.md.
-    $readmePath = Join-Path $Root "$mod\package\README.md"
+    $readmePath = Join-Path $dir 'package\README.md'
     if (-not (Test-Path $readmePath)) {
         throw "$mod\package\README.md missing - it is the Thunderstore description."
     }
     # Thunderstore renders a CHANGELOG.md at the zip root as the Changelog tab.
-    $changelogPath = Join-Path $Root "$mod\package\CHANGELOG.md"
+    $changelogPath = Join-Path $dir 'package\CHANGELOG.md'
     if (-not (Test-Path $changelogPath)) {
         throw "$mod\package\CHANGELOG.md missing - it is the Thunderstore changelog."
     }
@@ -40,18 +41,20 @@ foreach ($mod in $Mods) {
     # Thunderstore dislikes a BOM in manifest.json, so bypass Set-Content's encoding defaults.
     [IO.File]::WriteAllText($manifestPath, $manifest.TrimEnd() + "`n", (New-Object Text.UTF8Encoding $false))
 
-    dotnet build (Join-Path $Root "$mod\$mod.csproj") -c Release
-    if ($LASTEXITCODE -ne 0) { throw "Build failed for $mod." }
-
     $stage = Join-Path $Root 'dist\stage'
     if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
     New-Item -ItemType Directory $stage -Force | Out-Null
 
-    Copy-Item (Join-Path $Root "$mod\bin\Release\$mod.dll") $stage
-    $assets = Join-Path $Root "$mod\assets"
-    if (Test-Path $assets) { Copy-Item "$assets\*" $stage -Recurse -Force }
+    # A pack has no DLL: its zip is the package files alone, its manifest naming the members.
+    if (-not (Test-Pack $mod)) {
+        dotnet build (Join-Path $dir "$mod.csproj") -c Release
+        if ($LASTEXITCODE -ne 0) { throw "Build failed for $mod." }
+        Copy-Item (Join-Path $dir "bin\Release\$mod.dll") $stage
+        $assets = Join-Path $dir 'assets'
+        if (Test-Path $assets) { Copy-Item "$assets\*" $stage -Recurse -Force }
+    }
     Copy-Item $manifestPath $stage
-    Copy-Item (Join-Path $Root "$mod\package\icon.png") $stage
+    Copy-Item (Join-Path $dir 'package\icon.png') $stage
     Copy-Item $readmePath $stage
     Copy-Item $changelogPath $stage
 
