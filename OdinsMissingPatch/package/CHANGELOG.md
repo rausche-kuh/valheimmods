@@ -17,6 +17,11 @@
   first, and nothing you don't already carry is added. Each chest that gave something glows with
   how much it gave. The modifier and the item types are in the Quick Stack settings.
 - The Stack nearby and Fill your stacks buttons name their quick stack key in their tooltips.
+- Auto repair: a station repairs the gear of the other stations of its group too — the forge
+  mends black forge gear, the workbench mends Galdr table gear — as long as that station is built
+  nearby and upgraded far enough. Works with the repair button as well. Turn
+  `RequireRealStation` off to let the workbench and forge repair everything, no other station
+  needed.
 
 - Added: collateral damage. A troll's swing and ground slam hit the greydwarfs in the way,
   Eikthyr's lightning hits the dwarfs in the arena, Yagluth's meteors hit fulings and lox, and

@@ -9,29 +9,6 @@ Game facts marked **verify** were written from memory of the game code, without 
 hand. Check each one against `decompiled/assembly_valheim/` first; what the check teaches goes
 into the doc for the area, not here.
 
-## Station repair by groups
-
-_AutoRepair and the crafting panel's repair — [building-and-world](docs/building-and-world.md)_
-
-Repairing a full kit means visiting four stations. Group them:
-
-- **Forge group** — Forge and Black forge (and any other station whose name ends up as an item's
-  `m_craftingStation` / `m_repairStation` for metal gear; list them from `ObjectDB` once rather
-  than by hand).
-- **Workbench group** — Workbench, Galdr table, Artisan table, Stonecutter, Cauldron and the
-  rest that craft or repair gear.
-
-At a station of a group, an item whose own station is **another station of the same group** can
-be repaired too, if that other station **stands within its own range of the player** (so it has
-to exist in the base, and its upgrade level is the one that counts for the recipe's
-`m_minStationLevel`). Nothing else changes: crafting and upgrading still need the right station.
-
-How: a postfix on the private `InventoryGui.CanRepair(item)` that, when the answer was no,
-retries against every station of the current one's group found with
-`CraftingStation.HaveBuildStationInRange(name, playerPos)` (verify the signature) and its level.
-AutoRepair and the repair button both ask `CanRepair`, so both pick it up. A switch
-(`GroupRepair`) under AutoRepair, on by default. Client side.
-
 ## Boss fights
 
 ### No world spawns during a boss fight

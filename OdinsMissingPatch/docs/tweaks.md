@@ -97,6 +97,10 @@ stack, Place all, Fill the chest and Sort off the hotbar row.
 - **Auto repair** — pressing Use on a crafting station repairs every worn item in the inventory that
   station could repair, asking the crafting panel's own `CanRepair` per item, instead of one item
   per click of the repair button. Repairing is free in vanilla, so there is nothing to pay.
+  `GroupRepair` widens `CanRepair` to station groups (`ForgeGroup`, `WorkbenchGroup`): an item of
+  another station of the group is repaired too, if that station stands within its build range of
+  the player at a high enough level. `RequireRealStation` off drops that: the workbench and the
+  forge repair everything, no level checked. Covers the repair button as well.
 - **Chest buttons** — the chest panel's Take all and Stack all give way to five icon buttons placed
   beside the panels: fill your stacks from the chest (in the column beside the inventory panel,
   shared with Inventory buttons), which tops the backpack's stacks up to their caps and opens no

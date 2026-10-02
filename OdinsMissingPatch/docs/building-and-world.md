@@ -60,6 +60,15 @@ Ranges (stations, extensions, demisters), EndlessFuel, AreaRepair, AutoRepair.
   crafting panel. That is the only caller that sets a station, and `Player.UpdateStations`
   clears it again the frame the panel closes or the player walks out of range, so "the local
   player now holds this station" is exactly one station opening.
+- `CraftingStation.HaveBuildStationInRange(name, point)` returns the **first** station of that
+  name whose `GetStationBuildRange()` (base range plus extensions) reaches the point, height
+  ignored - not the best one, so a level check against it can hit an unupgraded spare. Group
+  repair walks the private static `m_allStations` itself and takes the highest `GetLevel()`.
+  `CanRepair` caps the station level at 4 before comparing it to `m_minStationLevel`.
+- Station names (`m_name`, read from the prefabs): `$piece_workbench`, `$piece_forge`,
+  `$piece_blackforge`, `$piece_magetable` (Galdr table), `$piece_artisanstation`,
+  `$piece_stonecutter`, `$piece_cauldron`, `$piece_meadcauldron`, `$piece_preptable`,
+  `$piece_upgradestation`. All have `m_canRepair` on.
 - `Piece.s_allPieces` is the registry of every loaded piece (private static, publicized), and
   `Piece.s_ghostLayer` is the layer the placement ghost sits on; the game's own radius searches
   (`GetAllPiecesInRadius`, `GetAllComfortPiecesInRadius`) walk the one and skip the other, which is
