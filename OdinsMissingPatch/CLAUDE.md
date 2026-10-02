@@ -46,7 +46,7 @@ before changing the area, and put back what a change taught.
 | `src/Tweaks/<Name>.cs` | One tweak, its `[HarmonyPatch]` classes nested inside. |
 | `src/NearbyChests.cs` | The chest tweaks' registry, reach, `Claim`, opt-out and its switch. |
 | `src/ChestFavorites.cs` | The item kinds a chest is marked to take, on its ZDO; Clear favourites. |
-| `src/Stash.cs` | What may leave the backpack, which chest takes it, the move. |
+| `src/Stash.cs` | What may leave the backpack, which chest takes it, the move; `TopUp`. |
 | `src/ChestGlow.cs` | The golden pulse and floating text on a chest. |
 | `src/Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut` through `ZInput`. |
 | `src/PanelButtons.cs` | The inventory screen's buttons, registered by owners, and their layout. |

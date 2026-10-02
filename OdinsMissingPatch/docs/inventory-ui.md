@@ -47,7 +47,12 @@
   other way. Without the vanilla buttons hidden that band is full, and they fall into the column
   beside the chest panel below whatever icon buttons stand there. The owner's refresh sets label
   and tooltip every frame the button shows; one that costs something to build (Clear favourites
-  names every marked kind) is rebuilt only when the state behind it changed.
+  names every marked kind) is rebuilt only when the state behind it changed. An icon button's
+  tooltip may be a `Func<string>` asked every frame it shows, for one that names a configurable
+  key (Stack nearby, Fill your stacks, both from `QuickStack`); it is written only when a
+  different string comes back, so the owner caches it and drops the cache when a key setting
+  changes. `Hotkeys.Describe` names the keys through `ZInput.KeyCodeToDisplayName`, the input
+  system's name on the current layout (`.`, `Left Shift`).
 - A sort never adds or drops a unit: `InventorySorter` merges by `Merges` - the game's own stack
   rule plus variant and custom data (so a tagged stack never swallows a plain one), and room
   under the cap; Fill your stacks uses the same rule - refuses without touching anything when
@@ -91,7 +96,7 @@
   `Inventory.StackAll(from)` moves what `this` already holds by name, skipping only what the
   local player has equipped - so the game's Stack all empties the hotbar too, and, since it adds
   through `AddItem`, it spills whatever does not fit the existing stacks into free slots. Fill
-  your stacks does not use it: `ChestButtons.TopUp` merges unit for unit into the stacks the
+  your stacks does not use it: `Stash.TopUp` merges unit for unit into the stacks the
   target already has (`InventorySorter.Merges`) and stops at their caps, so the button never
   opens a stack that was not there - take all is the button for that. Both cancel a
   drag first with `SetupDragItem(null, null, 1)`. `InventoryGui.UpdateInventory(Player)`

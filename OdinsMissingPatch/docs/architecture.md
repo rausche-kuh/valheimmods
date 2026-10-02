@@ -14,7 +14,7 @@ hold the conventions and game facts behind each piece.
 | `src/ChestGlow.cs` | The golden pulse plus floating text on a chest (`ChestGlow.Flash`). |
 | `src/Hotkeys.cs` | `Pressed` / `Held` for a `KeyboardShortcut`, read through `ZInput`. |
 | `src/PanelButtons.cs` | The inventory screen's buttons and their layout: icon and text buttons cut from the chest panel's Take all button, registered by their owners, placed once per frame in a column beside each panel or in the vanilla spots, and the switch that hides the game's Take all and Stack all. |
-| `src/Stash.cs` | Putting the backpack away: what may leave it, which chest takes which kind, the move into a chest. Shared by QuickStack and ChestButtons. |
+| `src/Stash.cs` | Putting the backpack away: what may leave it, which chest takes which kind, the move into a chest; and `TopUp`, filling existing stacks without opening new ones. Shared by QuickStack and ChestButtons. |
 | `src/SharedSettings.cs` | The settings several tweaks read, in the `General` section: `ChestRange`, `KeepHotbar`. |
 | `src/Palette.cs` | The colours the mod draws with, one per meaning. |
 | `src/PinSweep.cs` | The two-sweep "is it still there?" check for pins near the player, shared by DeathPins and AutoPins' mined-out check. |

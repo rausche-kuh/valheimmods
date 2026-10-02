@@ -115,7 +115,7 @@ namespace OdinsMissingPatch
         /// <summary>
         /// Whether units of <paramref name="item"/> may join <paramref name="stack"/>: the same
         /// kind of stack and room left under its cap. The one merge rule of the sort and of the
-        /// chest panel's Fill your stacks.
+        /// chest panel's Fill your stacks and quick stack's top-up.
         /// </summary>
         internal static bool Merges(ItemDrop.ItemData stack, ItemDrop.ItemData item)
         {

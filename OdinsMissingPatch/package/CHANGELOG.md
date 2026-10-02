@@ -12,6 +12,11 @@
   - The four chest ranges are one, `General.ChestRange`, and the three hotbar switches of quick
     stack, chest buttons and inventory buttons are one, `General.KeepHotbar`.
 - The "Nearby use: off" line on a chest's hover text is translated like the rest.
+- Quick stack: hold Shift while pressing the quick stack key to top up instead. Every stack of
+  food, meads and ammo you carry is filled up to its cap from the chests around you, nearest
+  first, and nothing you don't already carry is added. Each chest that gave something glows with
+  how much it gave. The modifier and the item types are in the Quick Stack settings.
+- The Stack nearby and Fill your stacks buttons name their quick stack key in their tooltips.
 
 - Added: collateral damage. A troll's swing and ground slam hit the greydwarfs in the way,
   Eikthyr's lightning hits the dwarfs in the arena, Yagluth's meteors hit fulings and lox, and

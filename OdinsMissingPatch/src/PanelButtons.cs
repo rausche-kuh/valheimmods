@@ -54,10 +54,11 @@ namespace OdinsMissingPatch
             internal string Name;
             internal string Icon;
             internal string Title;
-            internal string Tooltip;
+            internal Func<string> Tooltip;
             internal UnityAction OnClick;
             internal Func<InventoryGui, bool> Visible;
             internal Button Button;
+            internal UITooltip Tip;
         }
 
         private sealed class TextEntry
@@ -84,6 +85,17 @@ namespace OdinsMissingPatch
         /// </summary>
         internal static void Add(Column column, int order, string name, string icon, string title,
             string tooltip, UnityAction onClick, Func<InventoryGui, bool> visible)
+        {
+            Add(column, order, name, icon, title, () => tooltip, onClick, visible);
+        }
+
+        /// <summary>
+        /// The same, with a tooltip asked for on every frame the button shows, for one that
+        /// names a configurable key. It is written to the button only when the string handed
+        /// back is a different object, so the source should cache it.
+        /// </summary>
+        internal static void Add(Column column, int order, string name, string icon, string title,
+            Func<string> tooltip, UnityAction onClick, Func<InventoryGui, bool> visible)
         {
             iconButtons.Add(new IconEntry
             {
@@ -207,6 +219,14 @@ namespace OdinsMissingPatch
                 {
                     entry.Button.gameObject.SetActive(show);
                 }
+                if (show && entry.Tip != null)
+                {
+                    string tooltip = entry.Tooltip();
+                    if (!ReferenceEquals(entry.Tip.m_text, tooltip))
+                    {
+                        entry.Tip.m_text = tooltip;
+                    }
+                }
                 chestColumn |= show && entry.Column == Column.Chest;
             }
             SetVanilla(gui, !chestColumn);
@@ -237,8 +257,13 @@ namespace OdinsMissingPatch
             {
                 return false;
             }
-            entry.Button = Create(gui, parent, entry.Name, entry.Icon, entry.Title, entry.Tooltip, entry.OnClick);
-            return entry.Button != null;
+            entry.Button = Create(gui, parent, entry.Name, entry.Icon, entry.Title, entry.Tooltip(), entry.OnClick);
+            if (entry.Button == null)
+            {
+                return false;
+            }
+            entry.Tip = entry.Button.GetComponent<UITooltip>();
+            return true;
         }
 
         /// <summary>Only ever restores what it hid, so a button another mod hid stays hidden.</summary>

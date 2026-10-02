@@ -16,7 +16,7 @@ namespace OdinsMissingPatch
         private InventoryButtons()
         {
             PanelButtons.Add(PanelButtons.Column.Inventory, 10, "StackNearby", "stack_nearby",
-                "$omp_stack_nearby", "$omp_stack_nearby_tip", StackNearby,
+                "$omp_stack_nearby", () => QuickStack.Instance.StackNearbyTip(), StackNearby,
                 gui => Instance.On && QuickStack.Instance.On && gui.m_currentContainer == null);
             PanelButtons.Add(PanelButtons.Column.Inventory, 11, "SortInventory", "sort",
                 "$omp_sort", "$omp_sort_tip", SortInventory, gui => Instance.On);

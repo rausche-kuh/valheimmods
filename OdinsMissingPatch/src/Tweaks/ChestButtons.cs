@@ -27,7 +27,7 @@ namespace OdinsMissingPatch
         private ChestButtons()
         {
             PanelButtons.Add(PanelButtons.Column.Inventory, 0, "FillInventory", "fill_inventory",
-                "$omp_fill_inventory", "$omp_fill_inventory_tip", FillInventory, ChestShown);
+                "$omp_fill_inventory", () => QuickStack.Instance.FillInventoryTip(), FillInventory, ChestShown);
             PanelButtons.Add(PanelButtons.Column.Chest, 0, "TakeAll", "take_all",
                 "$omp_take_all", "$omp_take_all_tip", TakeAll, ChestShown);
             PanelButtons.Add(PanelButtons.Column.Chest, 1, "PlaceAll", "place_all",
@@ -90,56 +90,8 @@ namespace OdinsMissingPatch
                 return;
             }
             gui.SetupDragItem(null, null, 1);
-            int moved = TopUp(player.GetInventory(), chest.GetInventory());
+            int moved = Stash.TopUp(player.GetInventory(), chest.GetInventory());
             Report(gui, player, moved, "$omp_took", "$omp_took_none");
-        }
-
-        /// <summary>
-        /// Moves what fits into the stacks <paramref name="target"/> already holds and nothing
-        /// more: no free slot is taken, so nothing the target does not already carry appears in
-        /// it and no stack grows past its cap. What may merge is the sort's rule
-        /// (<see cref="InventorySorter.Merges"/>). Returns how many units went.
-        /// </summary>
-        private static int TopUp(Inventory target, Inventory source)
-        {
-            int moved = 0;
-            foreach (ItemDrop.ItemData item in new List<ItemDrop.ItemData>(source.GetAllItems()))
-            {
-                if (item.m_shared.m_maxStackSize <= 1)
-                {
-                    continue;
-                }
-                int before = item.m_stack;
-                foreach (ItemDrop.ItemData stack in target.GetAllItems())
-                {
-                    if (item.m_stack <= 0)
-                    {
-                        break;
-                    }
-                    if (!InventorySorter.Merges(stack, item))
-                    {
-                        continue;
-                    }
-                    int fits = Mathf.Min(stack.m_shared.m_maxStackSize - stack.m_stack, item.m_stack);
-                    stack.m_stack += fits;
-                    item.m_stack -= fits;
-                }
-                if (item.m_stack == before)
-                {
-                    continue;
-                }
-                moved += before - item.m_stack;
-                if (item.m_stack <= 0)
-                {
-                    source.RemoveItem(item);
-                }
-            }
-            if (moved > 0)
-            {
-                target.Changed();
-                source.Changed();
-            }
-            return moved;
         }
 
         private static void FillChest()

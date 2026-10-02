@@ -9,19 +9,6 @@ Game facts marked **verify** were written from memory of the game code, without 
 hand. Check each one against `decompiled/assembly_valheim/` first; what the check teaches goes
 into the doc for the area, not here.
 
-## Small and client side
-
-### Shift + quick stack tops up the backpack
-
-_QuickStack — [chests](docs/chests.md)_
-
-`Shift` held while pressing the quick stack key runs the other direction for consumables: every
-**food, potion (mead) and ammo** stack in the backpack is filled up to its cap from the chests in
-reach, nearest chest first, opening no new stacks — the Fill your stacks button, but from every
-chest in range and only for those kinds. The item types come from `ItemDrop.ItemData.ItemType`
-(`Consumable`, `Ammo`, verify whether meads are `Consumable` too) and the list is a setting like
-KeepGearOnDeath's. Each chest that gave something glows with a count, as quick stack does.
-
 ## Station repair by groups
 
 _AutoRepair and the crafting panel's repair — [building-and-world](docs/building-and-world.md)_

@@ -1,6 +1,8 @@
 using BepInEx.Configuration;
 using HarmonyLib;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -22,6 +24,11 @@ namespace OdinsMissingPatch
     /// The same modifier-click in an open chest's grid marks the chest for that kind of item
     /// instead (<see cref="ChestFavorites"/>): a marked chest is stacked into even when it holds
     /// none of it, and is filled before the chests that merely happen to hold one.
+    ///
+    /// With the top-up modifier held the key runs the other way for supplies: every food, mead
+    /// and ammo stack you carry (the TopUpTypes list) is filled up to its cap from the chests
+    /// around you, nearest first, without opening a new stack - favourites and the hotbar
+    /// included, since those are the stacks worth refilling.
     /// </summary>
     internal sealed class QuickStack : Tweak
     {
@@ -33,12 +40,24 @@ namespace OdinsMissingPatch
 
         private ConfigEntry<KeyboardShortcut> hotkey;
         private ConfigEntry<KeyboardShortcut> favoriteModifier;
+        private ConfigEntry<KeyboardShortcut> topUpModifier;
+
+        // The two buttons' tooltips with the keys in them, made when first shown and dropped
+        // whenever a key setting changes.
+        private string stackNearbyTip;
+        private string fillInventoryTip;
+
+        private const string DefaultTopUpTypes = "Consumable, Ammo, AmmoNonEquipable";
+
+        // Parsed from TopUpTypes whenever the setting changes.
+        private HashSet<ItemDrop.ItemData.ItemType> topUpTypes = new HashSet<ItemDrop.ItemData.ItemType>();
 
         internal override string Section => "Quick Stack";
 
         protected override string Summary =>
             "A hotkey stacks your inventory away into the chests around you that already hold " +
-            "each item. Equipped items, favourites and (unless General.KeepHotbar is off) the hotbar stay.";
+            "each item. Equipped items, favourites and (unless General.KeepHotbar is off) the hotbar stay. " +
+            "With TopUpModifier held it fills your food, mead and ammo stacks from those chests instead.";
 
         protected override void Bind(ConfigFile config)
         {
@@ -48,6 +67,75 @@ namespace OdinsMissingPatch
             favoriteModifier = config.Bind(Section, "FavoriteModifier", new KeyboardShortcut(KeyCode.LeftAlt),
                 "Held while clicking an item in the inventory to mark it as a favourite, or to " +
                 "clear the mark. Favourites are never quick stacked.");
+            topUpModifier = config.Bind(Section, "TopUpModifier", new KeyboardShortcut(KeyCode.LeftShift),
+                "Held while pressing the hotkey to fill the stacks you carry of the TopUpTypes up " +
+                "to their caps from the chests around you, instead of stacking away. Never opens a new stack.");
+            hotkey.SettingChanged += (sender, args) => ForgetTips();
+            topUpModifier.SettingChanged += (sender, args) => ForgetTips();
+            string types = string.Join(", ", Enum.GetNames(typeof(ItemDrop.ItemData.ItemType))
+                .Where(name => name != nameof(ItemDrop.ItemData.ItemType.None)).ToArray());
+            BindList(config, "TopUpTypes", DefaultTopUpTypes,
+                "Comma separated item types the top-up fills. Consumable is food and meads. The " +
+                "types the game knows: " + types + ".", ParseTopUpTypes);
+        }
+
+        private void ForgetTips()
+        {
+            stackNearbyTip = null;
+            fillInventoryTip = null;
+        }
+
+        /// <summary>Inventory buttons' Stack nearby tooltip: its line, plus the hotkey while quick stacking is on.</summary>
+        internal string StackNearbyTip()
+        {
+            const string tip = "$omp_stack_nearby_tip";
+            if (!On)
+            {
+                return tip;
+            }
+            return stackNearbyTip ?? (stackNearbyTip = WithKeys(tip, "$omp_hotkey", Hotkeys.Describe(hotkey.Value)));
+        }
+
+        /// <summary>
+        /// Chest buttons' Fill your stacks tooltip: its line, plus the top-up chord while quick
+        /// stacking is on - the same fill, from every chest in reach rather than the open one.
+        /// </summary>
+        internal string FillInventoryTip()
+        {
+            const string tip = "$omp_fill_inventory_tip";
+            if (!On || topUpModifier.Value.MainKey == KeyCode.None)
+            {
+                return tip;
+            }
+            return fillInventoryTip ?? (fillInventoryTip = WithKeys(tip, "$omp_hotkey_nearby",
+                Hotkeys.Describe(topUpModifier.Value, hotkey.Value)));
+        }
+
+        /// <summary>
+        /// A tooltip line with a key line under it, left as tokens: the tooltip translates them
+        /// as it shows, and a token ends at the colon.
+        /// </summary>
+        private static string WithKeys(string tip, string label, string keys)
+        {
+            return keys.Length == 0 ? tip
+                : tip + "\n" + label + ": " + Palette.ChestYellowTag + keys + "</color>";
+        }
+
+        private void ParseTopUpTypes(List<string> names)
+        {
+            var parsed = new HashSet<ItemDrop.ItemData.ItemType>();
+            foreach (string name in names)
+            {
+                try
+                {
+                    parsed.Add((ItemDrop.ItemData.ItemType)Enum.Parse(typeof(ItemDrop.ItemData.ItemType), name, ignoreCase: true));
+                }
+                catch (ArgumentException)
+                {
+                    OdinsMissingPatchPlugin.Log.LogWarning(Section + ": '" + name + "' is not an item type and is ignored");
+                }
+            }
+            topUpTypes = parsed;
         }
 
         // ---- The hotkey ----------------------------------------------------------------------
@@ -61,7 +149,18 @@ namespace OdinsMissingPatch
                 {
                     return;
                 }
-                if (Hotkeys.Pressed(Instance.hotkey.Value))
+                if (!Hotkeys.Pressed(Instance.hotkey.Value))
+                {
+                    return;
+                }
+                // Pressed only asks for the hotkey's own modifiers, so the chord counts as the
+                // plain key too: the top-up is asked first and takes the press.
+                if (Instance.topUpModifier.Value.MainKey != KeyCode.None
+                    && Hotkeys.Held(Instance.topUpModifier.Value))
+                {
+                    Instance.TopUp(__instance);
+                }
+                else
                 {
                     Instance.Stack(__instance);
                 }
@@ -147,6 +246,83 @@ namespace OdinsMissingPatch
                     stashed.Count == 1 ? "$omp_stacked_one_chest" : "$omp_stacked_chests",
                     moved.ToString(), stashed.Count.ToString())
                 : "$omp_stacked_none");
+        }
+
+        /// <summary>
+        /// The way back: the stacks of the TopUpTypes you carry, filled up to their caps from the
+        /// chests around you, nearest first, and no new stack opened.
+        /// </summary>
+        internal void TopUp(Player player)
+        {
+            Inventory backpack = player.GetInventory();
+            List<Container> chests = new List<Container>(NearbyChests.Find(player.transform.position));
+            if (chests.Count == 0)
+            {
+                player.Message(MessageHud.MessageType.Center, "$omp_no_chest");
+                return;
+            }
+            Func<ItemDrop.ItemData, bool> fills = stack => topUpTypes.Contains(stack.m_shared.m_itemType);
+            Dictionary<Container, int> taken = new Dictionary<Container, int>();
+            int moved = 0;
+            foreach (Container chest in chests)
+            {
+                if (!Wanting(backpack, chest.GetInventory()) || !NearbyChests.Claim(chest))
+                {
+                    continue;
+                }
+                int part = Stash.TopUp(backpack, chest.GetInventory(), fills);
+                if (part > 0)
+                {
+                    moved += part;
+                    Add(taken, chest, part);
+                }
+                if (!Wanting(backpack, null))
+                {
+                    break;
+                }
+            }
+            foreach (KeyValuePair<Container, int> pair in taken)
+            {
+                ChestGlow.Flash(pair.Key, "-" + pair.Value);
+                InventoryGui gui = InventoryGui.instance;
+                if (gui != null)
+                {
+                    gui.m_moveItemEffects.Create(pair.Key.transform.position, Quaternion.identity);
+                }
+            }
+            player.Message(MessageHud.MessageType.Center, moved > 0
+                ? Localization.instance.Localize(
+                    taken.Count == 1 ? "$omp_topped_up_one_chest" : "$omp_topped_up_chests",
+                    moved.ToString(), taken.Count.ToString())
+                : "$omp_topped_up_none");
+        }
+
+        /// <summary>
+        /// Whether a stack of the TopUpTypes in the backpack has room left, and, with a
+        /// <paramref name="chest"/>, whether that chest holds any of it - so a chest with nothing
+        /// to give is never claimed.
+        /// </summary>
+        private bool Wanting(Inventory backpack, Inventory chest)
+        {
+            foreach (ItemDrop.ItemData stack in backpack.GetAllItems())
+            {
+                if (!topUpTypes.Contains(stack.m_shared.m_itemType) || stack.m_stack >= stack.m_shared.m_maxStackSize)
+                {
+                    continue;
+                }
+                if (chest == null)
+                {
+                    return true;
+                }
+                foreach (ItemDrop.ItemData item in chest.GetAllItems())
+                {
+                    if (InventorySorter.Merges(stack, item))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static bool Takes(Container chest, Inventory inventory, string name)

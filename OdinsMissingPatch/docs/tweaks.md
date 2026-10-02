@@ -82,7 +82,10 @@ stack, Place all, Fill the chest and Sort off the hotbar row.
   kind shows its amount in yellow; the chest panel's Clear favourites button lists every mark in
   its tooltip, the ones the chest holds none of included. Read by
   Chest buttons' Fill the chest's stacks as well, so either tweak alone is enough for the marks to
-  mean something.
+  mean something. With `TopUpModifier` (Left Shift) held the key runs the other way: every carried
+  stack of the `TopUpTypes` (food and meads, ammo) is filled up to its cap from the chests in range,
+  nearest first, never opening a new stack, favourites and the hotbar included; each chest that
+  gave something glows with a minus count.
 - **Station refill** — `SingleFromChests`: the four manual add-fuel interactions (fire, smelter,
   oven, shield generator) see the chests the way nearby crafting does, so a unit comes out of a
   chest when the backpack has none; nothing refuels itself. `AddAll`: Shift + Use on a

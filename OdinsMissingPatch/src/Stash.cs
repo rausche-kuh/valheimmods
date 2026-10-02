@@ -1,9 +1,14 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
 namespace OdinsMissingPatch
 {
     /// <summary>
     /// The rules for putting the backpack away into a chest, shared by quick stacking and the
     /// chest panel's Place all and Fill the chest: what may leave the backpack, which chest takes
-    /// which kind of item, and the move itself.
+    /// which kind of item, and the move itself. Plus the way back, topping stacks up without
+    /// opening new ones, for Fill your stacks and quick stack's top-up.
     /// </summary>
     internal static class Stash
     {
@@ -63,6 +68,55 @@ namespace OdinsMissingPatch
                 from.Changed();
             }
             return part;
+        }
+
+        /// <summary>
+        /// Moves what fits into the stacks <paramref name="target"/> already holds and nothing
+        /// more: no free slot is taken, so nothing the target does not already carry appears in
+        /// it and no stack grows past its cap. What may merge is the sort's rule
+        /// (<see cref="InventorySorter.Merges"/>); <paramref name="fills"/>, when given, picks the
+        /// target stacks that may grow. Returns how many units went.
+        /// </summary>
+        internal static int TopUp(Inventory target, Inventory source, Func<ItemDrop.ItemData, bool> fills = null)
+        {
+            int moved = 0;
+            foreach (ItemDrop.ItemData item in new List<ItemDrop.ItemData>(source.GetAllItems()))
+            {
+                if (item.m_shared.m_maxStackSize <= 1)
+                {
+                    continue;
+                }
+                int before = item.m_stack;
+                foreach (ItemDrop.ItemData stack in target.GetAllItems())
+                {
+                    if (item.m_stack <= 0)
+                    {
+                        break;
+                    }
+                    if (!InventorySorter.Merges(stack, item) || (fills != null && !fills(stack)))
+                    {
+                        continue;
+                    }
+                    int fits = Mathf.Min(stack.m_shared.m_maxStackSize - stack.m_stack, item.m_stack);
+                    stack.m_stack += fits;
+                    item.m_stack -= fits;
+                }
+                if (item.m_stack == before)
+                {
+                    continue;
+                }
+                moved += before - item.m_stack;
+                if (item.m_stack <= 0)
+                {
+                    source.RemoveItem(item);
+                }
+            }
+            if (moved > 0)
+            {
+                target.Changed();
+                source.Changed();
+            }
+            return moved;
         }
     }
 }

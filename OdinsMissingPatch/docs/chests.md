@@ -75,6 +75,10 @@ that reach into chests (NearbyCrafting, StationRefill, QuickStack, ChestButtons)
   writes and the tooltip's list pay for a `Split`. A mark means "treat this chest as holding
   that item": it never adds a slot, so the `HaveEmptySlot() || FindFreeStackSpace() > 0` check
   in front of `AddItem` still decides whether anything actually fits.
+- Food and meads are both `ItemType.Consumable` (food has `m_food > 0`, a mead a
+  `m_consumeStatusEffect`): `Humanoid.UseItem` sends only that type to `ConsumeItem`. Arrows,
+  bolts and missiles are `Ammo`; `AmmoNonEquipable` is ammo that cannot be equipped itself.
+  `Inventory.GetAmmoItem` searches all three by `m_ammoType`.
 - `ItemData.m_customData` is a string dictionary saved with the item (inventory blob, character
   file, dropped item) and copied by `Clone()`, so it is the place for a per-stack flag
   (`QuickStack`'s favourite); splitting a stack copies the flag.
