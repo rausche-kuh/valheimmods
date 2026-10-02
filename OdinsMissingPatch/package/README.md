@@ -13,15 +13,12 @@ can just as well install only the ones you want.
 
 ## What's in it
 
-| Mod | What it does |
-| --- | --- |
+| Mod                                                                                      | What it does                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [**Odin's Essentials**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsEssentials/) | Bigger station ranges, fires that stay lit, repair everything at once, instant `Rested`, fast portals, no stamina for chores out of combat, gear that equips while you run, Haldor's pockets earlier, Forsaken powers from the radial menu. |
-| [**Odin's Reach**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsReach/) | The chests around you count as your own: craft and refuel from them, quick stack into them with one key, and fill, take, place and sort with buttons beside the inventory. |
-| [**Odin's Pins**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsPins/) | Dungeons, ore and places pinned as you find them and shared with everyone online, map tables that sync on their own, biome coloured pins, death pins that clear with the grave. |
-| [**Item Magnet**](https://thunderstore.io/c/valheim/p/rauschekuh/ItemMagnet/) | Hold `Y` and every item lying around flies to your feet, out of combat only. |
-| [**Odin's Beacon**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsBeacon/) | A glowing mark over every other player, seen through walls and held at the screen's edge when they are off screen. |
-
-![Odin's Beacon: a friend's mark seen through the forest](https://raw.githubusercontent.com/rausche-kuh/valheimmods/main/images/friend_marker.webp)
+| [**Odin's Reach**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsReach/)           | The chests around you count as your own: craft and refuel from them, quick stack into them with one key, and fill, take, place and sort with buttons beside the inventory.                                                                  |
+| [**Odin's Pins**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsPins/)             | Dungeons, ore and places pinned as you find them and shared with everyone online, map tables that sync on their own, biome coloured pins, death pins that clear with the grave.                                                             |
+| [**Odin's Beacon**](https://thunderstore.io/c/valheim/p/rauschekuh/OdinsBeacon/)         | A glowing mark over every other player, seen through walls and held at the screen's edge when they are off screen.                                                                                                                          |
 
 Want trolls and bosses to smash the creatures in their way?
 [Collateral Damage](https://thunderstore.io/c/valheim/p/rauschekuh/CollateralDamage/). Doors you
